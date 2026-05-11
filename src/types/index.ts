@@ -12,6 +12,10 @@ export enum SortOrder {
   YEAR_DESC = 'YEAR_DESC',
   RATING_ASC = 'RATING_ASC',
   RATING_DESC = 'RATING_DESC',
+  GENRE_ASC = 'GENRE_ASC',
+  GENRE_DESC = 'GENRE_DESC',
+  CREATED_ASC = 'CREATED_ASC',
+  CREATED_DESC = 'CREATED_DESC',
 }
 
 export enum WatchFilter {
@@ -44,15 +48,23 @@ export interface Movie {
 export interface MovieList {
   id: string
   name: string
+  subtitle?: string
+  description?: string
   createdAt: Timestamp
 }
 
 export interface TmdbSearchResult {
   id: number
-  title: string
+  mediaType: 'movie' | 'tv'
+  title: string | null
+  name: string | null
   releaseDate: string | null
+  firstAirDate: string | null
   overview: string | null
   posterPath: string | null
+  voteAverage: number | null
+  genre: string | null
 }
 
-export const MY_MOVIES_LIST_NAME = 'My Movies'
+export const MY_MOVIES_LIST_NAME = 'All Movies'
+export const MAX_LIST_SUBTITLE_LENGTH = 30

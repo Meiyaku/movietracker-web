@@ -1,53 +1,91 @@
-import { useState, KeyboardEvent } from 'react'
+import { useState, useRef } from 'react'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { recordError } from '../../services/logger'
+import { MAX_LIST_SUBTITLE_LENGTH } from '../../types'
 
 interface CreateListDialogProps {
-  onConfirm: (name: string) => Promise<void>
+  onConfirm: (name: string, subtitle: string | undefined, description: string | undefined) => Promise<void>
   onClose: () => void
 }
 
 export function CreateListDialog({ onConfirm, onClose }: CreateListDialogProps) {
   const [name, setName] = useState('')
+  const [subtitle, setSubtitle] = useState('')
+  const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef)
 
   async function handleSubmit() {
-    const trimmed = name.trim()
-    if (!trimmed) {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
       setError('List name cannot be empty.')
       return
     }
     setLoading(true)
     setError(null)
     try {
-      await onConfirm(trimmed)
+      await onConfirm(
+        trimmedName,
+        subtitle.trim() || undefined,
+        description.trim() || undefined,
+      )
       onClose()
     } catch (e) {
-      setError('Failed to create list. Please try again.')
-      console.error(e)
+      setError(e instanceof Error ? e.message : 'Failed to create list. Please try again.')
+      recordError(e, 'createList')
     } finally {
       setLoading(false)
     }
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') handleSubmit()
-    if (e.key === 'Escape') onClose()
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">New List</h2>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-list-title"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6"
+      >
+        <h2 id="create-list-title" className="text-lg font-bold text-gray-900 dark:text-white mb-4">New List</h2>
+
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Name</label>
         <input
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onChange={(e) => { setName(e.target.value); if (error) setError(null) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') onClose() }}
           placeholder="List name"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-2"
+          maxLength={100}
           autoFocus
           disabled={loading}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-3"
         />
+
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Subtitle</label>
+        <input
+          type="text"
+          value={subtitle}
+          onChange={(e) => setSubtitle(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
+          placeholder="Optional"
+          maxLength={MAX_LIST_SUBTITLE_LENGTH}
+          disabled={loading}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-3"
+        />
+
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional"
+          rows={3}
+          disabled={loading}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-2 resize-none"
+        />
+
         {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
         <div className="flex gap-2 mt-4">
           <button

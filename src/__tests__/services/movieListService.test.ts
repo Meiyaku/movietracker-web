@@ -18,6 +18,8 @@ const mockOnSnapshot = vi.fn()
 const mockCollection = vi.fn()
 const mockDoc = vi.fn()
 
+const mockDeleteField = vi.fn().mockReturnValue({ type: 'deleteField' })
+
 vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...args),
   doc: (...args: unknown[]) => mockDoc(...args),
@@ -25,12 +27,13 @@ vi.mock('firebase/firestore', () => ({
   deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
   onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  deleteField: () => mockDeleteField(),
   Timestamp: MockTimestamp,
 }))
 
 vi.mock('../../firebase', () => ({ auth: {}, db: {} }))
 
-const { subscribeToLists, createDefaultList, createList, renameList, deleteList, sortLists } =
+const { subscribeToLists, createDefaultList, createList, updateList, deleteList, sortLists } =
   await import('../../services/movieListService')
 
 const fakeTs = new MockTimestamp(1000, 0)
@@ -44,7 +47,7 @@ beforeEach(() => {
 describe('subscribeToLists', () => {
   it('calls onSnapshot and maps docs to MovieList', () => {
     const unsub = vi.fn()
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({
         docs: [
           { id: 'list1', data: () => ({ name: 'My Movies', createdAt: fakeTs }) },
@@ -65,7 +68,7 @@ describe('subscribeToLists', () => {
   })
 
   it('defaults name to empty string when missing', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [{ id: 'l1', data: () => ({}) }] })
       return vi.fn()
     })
@@ -75,7 +78,7 @@ describe('subscribeToLists', () => {
   })
 
   it('falls back to Timestamp.now() when createdAt is not a Timestamp', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [{ id: 'l1', data: () => ({ createdAt: 'bad' }) }] })
       return vi.fn()
     })
@@ -86,7 +89,7 @@ describe('subscribeToLists', () => {
 
   it('calls onError on snapshot error', () => {
     const testError = new Error('permission denied')
-    mockOnSnapshot.mockImplementation((ref, onNext, onErr) => {
+    mockOnSnapshot.mockImplementation((_ref, _onNext, onErr) => {
       onErr(testError)
       return vi.fn()
     })
@@ -100,7 +103,7 @@ describe('createDefaultList', () => {
   it('creates a list with MY_MOVIES_LIST_NAME', async () => {
     mockAddDoc.mockResolvedValue({ id: 'newId' })
     const id = await createDefaultList('uid1')
-    expect(mockAddDoc).toHaveBeenCalledWith('listsRef', expect.objectContaining({ name: 'My Movies' }))
+    expect(mockAddDoc).toHaveBeenCalledWith('listsRef', expect.objectContaining({ name: 'All Movies' }))
     expect(id).toBe('newId')
   })
 })
@@ -114,11 +117,25 @@ describe('createList', () => {
   })
 })
 
-describe('renameList', () => {
-  it('calls updateDoc with new name', async () => {
+describe('updateList', () => {
+  it('calls updateDoc with name and deleteField sentinels when no subtitle/description', async () => {
     mockUpdateDoc.mockResolvedValue(undefined)
-    await renameList('uid1', 'listId', 'New Name')
-    expect(mockUpdateDoc).toHaveBeenCalledWith('docRef', { name: 'New Name' })
+    await updateList('uid1', 'listId', 'New Name', undefined, undefined)
+    expect(mockUpdateDoc).toHaveBeenCalledWith('docRef', {
+      name: 'New Name',
+      subtitle: { type: 'deleteField' },
+      description: { type: 'deleteField' },
+    })
+  })
+
+  it('calls updateDoc with subtitle and description when provided', async () => {
+    mockUpdateDoc.mockResolvedValue(undefined)
+    await updateList('uid1', 'listId', 'New Name', 'My subtitle', 'My description')
+    expect(mockUpdateDoc).toHaveBeenCalledWith('docRef', {
+      name: 'New Name',
+      subtitle: 'My subtitle',
+      description: 'My description',
+    })
   })
 })
 
@@ -133,25 +150,25 @@ describe('deleteList', () => {
 describe('sortLists', () => {
   const ts = new MockTimestamp(0, 0) as unknown as Timestamp
 
-  it('puts My Movies first', () => {
+  it('puts All Movies first', () => {
     const lists = [
       { id: '2', name: 'Action', createdAt: ts },
-      { id: '1', name: 'My Movies', createdAt: ts },
+      { id: '1', name: 'All Movies', createdAt: ts },
     ]
     const sorted = sortLists(lists)
-    expect(sorted[0].name).toBe('My Movies')
+    expect(sorted[0].name).toBe('All Movies')
     expect(sorted[1].name).toBe('Action')
   })
 
   it('sorts remaining lists alphabetically', () => {
     const lists = [
       { id: '3', name: 'Thrillers', createdAt: ts },
-      { id: '1', name: 'My Movies', createdAt: ts },
+      { id: '1', name: 'All Movies', createdAt: ts },
       { id: '2', name: 'Action', createdAt: ts },
       { id: '4', name: 'Comedy', createdAt: ts },
     ]
     const sorted = sortLists(lists)
-    expect(sorted.map((l) => l.name)).toEqual(['My Movies', 'Action', 'Comedy', 'Thrillers'])
+    expect(sorted.map((l) => l.name)).toEqual(['All Movies', 'Action', 'Comedy', 'Thrillers'])
   })
 
   it('handles list with no My Movies entry', () => {

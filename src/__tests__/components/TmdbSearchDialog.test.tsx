@@ -16,8 +16,30 @@ vi.mock('../../services/tmdbService', () => ({
 }))
 
 const sampleResults = [
-  { id: 1, title: 'Inception', releaseDate: '2010-07-16', overview: 'A dream thief', posterPath: '/inception.jpg' },
-  { id: 2, title: 'The Matrix', releaseDate: '1999-03-31', overview: null, posterPath: null },
+  {
+    id: 1,
+    mediaType: 'movie' as const,
+    title: 'Inception',
+    name: null,
+    releaseDate: '2010-07-16',
+    firstAirDate: null,
+    overview: 'A dream thief',
+    posterPath: '/inception.jpg',
+    voteAverage: 8.4,
+    genre: 'Science Fiction / Action',
+  },
+  {
+    id: 2,
+    mediaType: 'movie' as const,
+    title: 'The Matrix',
+    name: null,
+    releaseDate: '1999-03-31',
+    firstAirDate: null,
+    overview: null,
+    posterPath: null,
+    voteAverage: null,
+    genre: null,
+  },
 ]
 
 beforeEach(() => {
@@ -75,7 +97,7 @@ describe('TmdbSearchDialog', () => {
     await user.type(screen.getByPlaceholderText('Search for a movie...'), 'test')
     await user.click(screen.getByText('Search'))
     await waitFor(() => {
-      expect(screen.getByText('2010')).toBeInTheDocument()
+      expect(screen.getByText(/2010/)).toBeInTheDocument()
     })
   })
 
@@ -139,6 +161,7 @@ describe('TmdbSearchDialog', () => {
         posterUrl: 'poster/inception.jpg',
         trailerUrl: 'https://www.youtube.com/watch?v=trailer',
         description: 'A dream thief',
+        genre: 'Science Fiction / Action',
       })
     })
   })

@@ -18,14 +18,14 @@ vi.mock('react-router-dom', async () => {
 
 const mockSignOut = vi.fn()
 const mockCreateList = vi.fn()
-const mockRenameList = vi.fn()
+const mockUpdateList = vi.fn()
 const mockDeleteList = vi.fn()
 const mockRemoveListFromAllMovies = vi.fn()
 
 vi.mock('../../services/authService', () => ({ signOut: () => mockSignOut() }))
 vi.mock('../../services/movieListService', () => ({
   createList: (...args: unknown[]) => mockCreateList(...args),
-  renameList: (...args: unknown[]) => mockRenameList(...args),
+  updateList: (...args: unknown[]) => mockUpdateList(...args),
   deleteList: (...args: unknown[]) => mockDeleteList(...args),
 }))
 vi.mock('../../services/movieService', () => ({
@@ -47,6 +47,7 @@ const defaultProps = {
   activeListId: 'list0',
   onSelectList: vi.fn(),
   onClose: vi.fn(),
+  movieCounts: undefined as Record<string, number> | undefined,
 }
 
 function renderDrawer(props = defaultProps) {
@@ -61,7 +62,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockSignOut.mockResolvedValue(undefined)
   mockCreateList.mockResolvedValue('newListId')
-  mockRenameList.mockResolvedValue(undefined)
+  mockUpdateList.mockResolvedValue(undefined)
   mockDeleteList.mockResolvedValue(undefined)
   mockRemoveListFromAllMovies.mockResolvedValue(undefined)
 })
@@ -79,7 +80,7 @@ describe('AppDrawer', () => {
 
   it('renders all lists', () => {
     renderDrawer()
-    expect(screen.getByText('My Movies')).toBeInTheDocument()
+    expect(screen.getByText(MY_MOVIES_LIST_NAME)).toBeInTheDocument()
     expect(screen.getByText('Watchlist')).toBeInTheDocument()
   })
 
@@ -99,14 +100,14 @@ describe('AppDrawer', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('does not show rename/delete for My Movies', () => {
+  it('does not show edit/delete for My Movies', () => {
     renderDrawer()
-    // My Movies should have no rename/delete title buttons
+    // My Movies should have no edit/delete title buttons
     // The buttons exist only for non-My-Movies entries
-    const renameButtons = screen.queryAllByTitle('Rename')
+    const editButtons = screen.queryAllByTitle('Edit')
     const deleteButtons = screen.queryAllByTitle('Delete')
-    // For 1 custom list, there should be exactly 1 rename and 1 delete
-    expect(renameButtons).toHaveLength(1)
+    // For 1 custom list, there should be exactly 1 edit and 1 delete
+    expect(editButtons).toHaveLength(1)
     expect(deleteButtons).toHaveLength(1)
   })
 
@@ -138,26 +139,26 @@ describe('AppDrawer', () => {
     await user.click(screen.getByText('New List'))
     await user.type(screen.getByPlaceholderText('List name'), 'Action')
     await user.click(screen.getByText('Create'))
-    await waitFor(() => expect(mockCreateList).toHaveBeenCalledWith('uid1', 'Action'))
+    await waitFor(() => expect(mockCreateList).toHaveBeenCalledWith('uid1', 'Action', undefined, undefined))
   })
 
-  it('opens RenameListDialog when Rename button is clicked', async () => {
+  it('opens EditListDialog when Edit button is clicked', async () => {
     const user = userEvent.setup()
     renderDrawer()
-    await user.click(screen.getByTitle('Rename'))
-    expect(screen.getByText('Rename List')).toBeInTheDocument()
+    await user.click(screen.getByTitle('Edit'))
+    expect(screen.getByText('Edit List')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Watchlist')).toBeInTheDocument()
   })
 
-  it('renames a list via the dialog', async () => {
+  it('edits a list via the dialog', async () => {
     const user = userEvent.setup()
     renderDrawer()
-    await user.click(screen.getByTitle('Rename'))
+    await user.click(screen.getByTitle('Edit'))
     const input = screen.getByDisplayValue('Watchlist')
     await user.clear(input)
     await user.type(input, 'New Name')
     await user.click(screen.getByText('Save'))
-    await waitFor(() => expect(mockRenameList).toHaveBeenCalledWith('uid1', 'list1', 'New Name'))
+    await waitFor(() => expect(mockUpdateList).toHaveBeenCalledWith('uid1', 'list1', 'New Name', undefined, undefined))
   })
 
   it('opens DeleteListDialog when Delete button is clicked', async () => {
@@ -186,6 +187,22 @@ describe('AppDrawer', () => {
     await user.click(screen.getByTitle('Delete'))
     await user.click(screen.getByText('Delete'))
     await waitFor(() => expect(onSelectList).toHaveBeenCalledWith('list0'))
+  })
+
+  it('shows movie count next to each list when movieCounts is provided', () => {
+    renderDrawer({ ...defaultProps, movieCounts: { list0: 12, list1: 3 } })
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('shows 0 for a list with no entry in movieCounts', () => {
+    renderDrawer({ ...defaultProps, movieCounts: {} })
+    expect(screen.getAllByText('0')).toHaveLength(2)
+  })
+
+  it('shows no count badges when movieCounts is not provided', () => {
+    renderDrawer()
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
   })
 
   it('calls onClose when overlay is clicked', async () => {

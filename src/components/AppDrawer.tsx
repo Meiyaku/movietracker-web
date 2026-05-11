@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MovieList, MY_MOVIES_LIST_NAME } from '../types'
 import { signOut } from '../services/authService'
-import { renameList, deleteList, createList } from '../services/movieListService'
+import { updateList, deleteList, createList } from '../services/movieListService'
 import { removeListFromAllMovies } from '../services/movieService'
 import { useAuth } from '../context/AuthContext'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { CreateListDialog } from './dialogs/CreateListDialog'
-import { RenameListDialog } from './dialogs/RenameListDialog'
+import { EditListDialog } from './dialogs/EditListDialog'
 import { DeleteListDialog } from './dialogs/DeleteListDialog'
 
 interface AppDrawerProps {
@@ -14,17 +15,19 @@ interface AppDrawerProps {
   activeListId: string | null
   onSelectList: (id: string) => void
   onClose: () => void
+  movieCounts?: Record<string, number>
 }
 
 type DialogState =
   | { type: 'none' }
   | { type: 'create' }
-  | { type: 'rename'; list: MovieList }
+  | { type: 'edit'; list: MovieList }
   | { type: 'delete'; list: MovieList }
 
-export function AppDrawer({ lists, activeListId, onSelectList, onClose }: AppDrawerProps) {
+export function AppDrawer({ lists, activeListId, onSelectList, onClose, movieCounts }: AppDrawerProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isOnline = useOnlineStatus()
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
 
   async function handleSignOut() {
@@ -32,18 +35,27 @@ export function AppDrawer({ lists, activeListId, onSelectList, onClose }: AppDra
     navigate('/auth')
   }
 
-  async function handleCreateList(name: string) {
+  async function handleCreateList(name: string, subtitle: string | undefined, description: string | undefined) {
     if (!user) return
-    await createList(user.uid, name)
+    if (!isOnline) throw new Error('No internet connection.')
+    if (lists.some((l) => l.name.toLowerCase() === name.toLowerCase())) {
+      throw new Error(`A list named "${name}" already exists.`)
+    }
+    await createList(user.uid, name, subtitle, description)
   }
 
-  async function handleRenameList(list: MovieList, newName: string) {
+  async function handleEditList(list: MovieList, name: string, subtitle: string | undefined, description: string | undefined) {
     if (!user) return
-    await renameList(user.uid, list.id, newName)
+    if (!isOnline) throw new Error('No internet connection.')
+    if (lists.some((l) => l.id !== list.id && l.name.toLowerCase() === name.toLowerCase())) {
+      throw new Error(`A list named "${name}" already exists.`)
+    }
+    await updateList(user.uid, list.id, name, subtitle, description)
   }
 
   async function handleDeleteList(list: MovieList) {
     if (!user) return
+    if (!isOnline) throw new Error('No internet connection.')
     await removeListFromAllMovies(user.uid, list.id)
     await deleteList(user.uid, list.id)
     // If we deleted the active list, reset to My Movies
@@ -124,7 +136,7 @@ export function AppDrawer({ lists, activeListId, onSelectList, onClose }: AppDra
         </div>
 
         {/* Lists */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
           {lists.map((list) => {
             const isMyMovies = list.name === MY_MOVIES_LIST_NAME
             const isActive = list.id === activeListId
@@ -137,24 +149,37 @@ export function AppDrawer({ lists, activeListId, onSelectList, onClose }: AppDra
               >
                 <button
                   onClick={() => { onSelectList(list.id); onClose() }}
-                  className="flex-1 text-left px-3 py-2.5 text-sm"
+                  className="flex-1 flex items-center gap-2 text-left px-3 py-2.5 text-sm"
                 >
-                  <span
-                    className={`${
-                      isActive
-                        ? 'font-bold text-blue-700 dark:text-blue-400'
-                        : 'font-medium text-gray-800 dark:text-gray-200'
-                    }`}
-                  >
-                    {list.name}
+                  <span className="flex-1 min-w-0">
+                    <span
+                      className={`block truncate ${
+                        isActive
+                          ? 'font-bold text-blue-700 dark:text-blue-400'
+                          : 'font-medium text-gray-800 dark:text-gray-200'
+                      }`}
+                    >
+                      {list.name}
+                    </span>
+                    {list.subtitle && (
+                      <span className="block text-xs text-gray-400 dark:text-gray-500 break-words">
+                        {list.subtitle}
+                      </span>
+                    )}
                   </span>
+                  {movieCounts !== undefined && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                      {movieCounts[list.id] ?? 0}
+                    </span>
+                  )}
                 </button>
                 {!isMyMovies && (
-                  <div className="flex items-center gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 pr-2">
                     <button
-                      onClick={() => setDialog({ type: 'rename', list })}
+                      onClick={() => setDialog({ type: 'edit', list })}
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                      title="Rename"
+                      aria-label="Edit"
+                      title="Edit"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -163,6 +188,7 @@ export function AppDrawer({ lists, activeListId, onSelectList, onClose }: AppDra
                     <button
                       onClick={() => setDialog({ type: 'delete', list })}
                       className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      aria-label="Delete"
                       title="Delete"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -179,12 +205,12 @@ export function AppDrawer({ lists, activeListId, onSelectList, onClose }: AppDra
 
       {/* Dialogs */}
       {dialog.type === 'create' && (
-        <CreateListDialog onConfirm={handleCreateList} onClose={() => setDialog({ type: 'none' })} />
+        <CreateListDialog onConfirm={(name, subtitle, description) => handleCreateList(name, subtitle, description)} onClose={() => setDialog({ type: 'none' })} />
       )}
-      {dialog.type === 'rename' && (
-        <RenameListDialog
-          currentName={dialog.list.name}
-          onConfirm={(name) => handleRenameList(dialog.list, name)}
+      {dialog.type === 'edit' && (
+        <EditListDialog
+          list={dialog.list}
+          onConfirm={(name, subtitle, description) => handleEditList(dialog.list, name, subtitle, description)}
           onClose={() => setDialog({ type: 'none' })}
         />
       )}

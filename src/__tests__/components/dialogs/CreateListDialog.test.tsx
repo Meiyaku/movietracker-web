@@ -34,7 +34,7 @@ describe('CreateListDialog', () => {
     renderDialog(onConfirm)
     await user.type(screen.getByPlaceholderText('List name'), '  Favorites  ')
     await user.click(screen.getByText('Create'))
-    expect(onConfirm).toHaveBeenCalledWith('Favorites')
+    expect(onConfirm).toHaveBeenCalledWith('Favorites', undefined, undefined)
   })
 
   it('calls onClose after successful creation', async () => {
@@ -53,7 +53,7 @@ describe('CreateListDialog', () => {
     renderDialog(onConfirm)
     await user.type(screen.getByPlaceholderText('List name'), 'Test')
     await user.click(screen.getByText('Create'))
-    expect(screen.getByText('Failed to create list. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('network error')).toBeInTheDocument()
   })
 
   it('calls onClose when Cancel is clicked', async () => {
@@ -69,7 +69,7 @@ describe('CreateListDialog', () => {
     const user = userEvent.setup()
     renderDialog(onConfirm)
     await user.type(screen.getByPlaceholderText('List name'), 'Watchlist{Enter}')
-    expect(onConfirm).toHaveBeenCalledWith('Watchlist')
+    expect(onConfirm).toHaveBeenCalledWith('Watchlist', undefined, undefined)
   })
 
   it('closes on Escape key press', async () => {

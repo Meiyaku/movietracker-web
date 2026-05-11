@@ -6,6 +6,7 @@ const mockCreateUser = vi.fn()
 const mockSignIn = vi.fn()
 const mockSendReset = vi.fn()
 const mockSignOut = vi.fn()
+const mockDeleteUser = vi.fn()
 const mockOnAuthStateChanged = vi.fn()
 const mockCurrentUser = { value: null as typeof mockUser | null }
 
@@ -14,6 +15,7 @@ vi.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: (...args: unknown[]) => mockSignIn(...args),
   sendPasswordResetEmail: (...args: unknown[]) => mockSendReset(...args),
   signOut: (...args: unknown[]) => mockSignOut(...args),
+  deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
   onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
 }))
 
@@ -31,13 +33,14 @@ vi.mock('../../firebase', () => ({
 }))
 
 // Import after mocks are set up
-const { onAuthChange, signUp, signIn, sendPasswordReset, signOut, getCurrentUser } = await import(
+const { onAuthChange, signUp, signIn, sendPasswordReset, signOut, getCurrentUser, deleteAccount } = await import(
   '../../services/authService'
 )
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockCurrentUser.value = null
+  mockDeleteUser.mockResolvedValue(undefined)
 })
 
 describe('onAuthChange', () => {
@@ -109,5 +112,24 @@ describe('getCurrentUser', () => {
   it('returns null when not logged in', () => {
     mockCurrentUser.value = null
     expect(getCurrentUser()).toBeNull()
+  })
+})
+
+describe('deleteAccount', () => {
+  it('calls deleteUser with the current user', async () => {
+    mockCurrentUser.value = mockUser
+    await deleteAccount()
+    expect(mockDeleteUser).toHaveBeenCalledWith(mockUser)
+  })
+
+  it('throws when no user is logged in', async () => {
+    mockCurrentUser.value = null
+    await expect(deleteAccount()).rejects.toThrow('Not authenticated')
+  })
+
+  it('propagates errors from deleteUser', async () => {
+    mockCurrentUser.value = mockUser
+    mockDeleteUser.mockRejectedValue(new Error('requires-recent-login'))
+    await expect(deleteAccount()).rejects.toThrow('requires-recent-login')
   })
 })

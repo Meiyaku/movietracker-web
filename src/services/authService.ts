@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut as firebaseSignOut,
+  deleteUser,
   onAuthStateChanged,
   User,
 } from 'firebase/auth'
@@ -32,4 +33,10 @@ export async function signOut(): Promise<void> {
 
 export function getCurrentUser(): User | null {
   return auth.currentUser
+}
+
+export async function deleteAccount(): Promise<void> {
+  const user = auth.currentUser
+  if (!user) throw new Error('Not authenticated')
+  await deleteUser(user)
 }

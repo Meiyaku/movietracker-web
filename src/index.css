@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-auth-bg-light: #475D92;
+  --color-auth-bg-dark: #1E2037;
+  --color-auth-btn-light: #7D5260;
+  --color-auth-btn-dark: #9B6B7D;
+  --color-watched-fill: #A1DD70;
+  --color-watched-border: #799351;
+  --color-want-fill: #EE4E4E;
+  --color-want-border: #DF2E38;
+  --color-star: #FFD700;
+}
 
 @layer base {
   html {
@@ -10,14 +22,5 @@
 
   body {
     @apply bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white;
-  }
-}
-
-@layer utilities {
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 }

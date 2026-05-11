@@ -45,7 +45,7 @@ describe('DeleteListDialog', () => {
     const user = userEvent.setup()
     renderDialog('List', onConfirm)
     await user.click(screen.getByText('Delete'))
-    expect(screen.getByText('Failed to delete list. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('fail')).toBeInTheDocument()
   })
 
   it('calls onClose when Cancel is clicked', async () => {

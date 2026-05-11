@@ -3,15 +3,15 @@ import { render } from '@testing-library/react'
 import { StarRating } from '../../components/StarRating'
 
 function filledStars(container: HTMLElement) {
-  return Array.from(container.querySelectorAll('svg')).filter((s) =>
-    s.getAttribute('class')?.includes('text-star'),
-  )
+  return container.querySelectorAll('[data-testid="star-full"]')
+}
+
+function halfStars(container: HTMLElement) {
+  return container.querySelectorAll('[data-testid="star-half"]')
 }
 
 function emptyStars(container: HTMLElement) {
-  return Array.from(container.querySelectorAll('svg')).filter((s) =>
-    s.getAttribute('class')?.includes('text-gray-300'),
-  )
+  return container.querySelectorAll('[data-testid="star-empty"]')
 }
 
 describe('StarRating', () => {
@@ -22,12 +22,12 @@ describe('StarRating', () => {
 
   it('renders 5 stars by default', () => {
     const { container } = render(<StarRating rating={3} />)
-    expect(container.querySelectorAll('svg')).toHaveLength(5)
+    expect(container.querySelectorAll('[data-testid^="star-"]')).toHaveLength(5)
   })
 
   it('renders custom max stars', () => {
     const { container } = render(<StarRating rating={2} max={3} />)
-    expect(container.querySelectorAll('svg')).toHaveLength(3)
+    expect(container.querySelectorAll('[data-testid^="star-"]')).toHaveLength(3)
   })
 
   it('fills stars up to the rating value', () => {
@@ -46,5 +46,12 @@ describe('StarRating', () => {
     const { container } = render(<StarRating rating={0} />)
     expect(filledStars(container)).toHaveLength(0)
     expect(emptyStars(container)).toHaveLength(5)
+  })
+
+  it('renders half star for 0.5 increment', () => {
+    const { container } = render(<StarRating rating={2.5} />)
+    expect(filledStars(container)).toHaveLength(2)
+    expect(halfStars(container)).toHaveLength(1)
+    expect(emptyStars(container)).toHaveLength(2)
   })
 })

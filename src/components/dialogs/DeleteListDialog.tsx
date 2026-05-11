@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { recordError } from '../../services/logger'
 
 interface DeleteListDialogProps {
   listName: string
@@ -9,6 +11,8 @@ interface DeleteListDialogProps {
 export function DeleteListDialog({ listName, onConfirm, onClose }: DeleteListDialogProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef)
 
   async function handleDelete() {
     setLoading(true)
@@ -17,8 +21,8 @@ export function DeleteListDialog({ listName, onConfirm, onClose }: DeleteListDia
       await onConfirm()
       onClose()
     } catch (e) {
-      setError('Failed to delete list. Please try again.')
-      console.error(e)
+      setError(e instanceof Error ? e.message : 'Failed to delete list. Please try again.')
+      recordError(e, 'deleteList')
     } finally {
       setLoading(false)
     }
@@ -26,8 +30,14 @@ export function DeleteListDialog({ listName, onConfirm, onClose }: DeleteListDia
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete List</h2>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-list-title"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6"
+      >
+        <h2 id="delete-list-title" className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete List</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Delete <strong className="text-gray-900 dark:text-white">"{listName}"</strong>? This will
           remove it from all movies but will not delete the movies themselves.

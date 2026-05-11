@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Timestamp } from 'firebase/firestore'
 import { WatchStatus } from '../../types'
 
 class MockTimestamp {
@@ -11,6 +12,8 @@ class MockTimestamp {
   static now() { return new MockTimestamp(1000, 0) }
 }
 
+const mockGetDoc = vi.fn()
+const mockGetDocs = vi.fn()
 const mockAddDoc = vi.fn()
 const mockSetDoc = vi.fn()
 const mockDeleteDoc = vi.fn()
@@ -26,6 +29,8 @@ const mockBatchCommit = vi.fn()
 vi.mock('firebase/firestore', () => ({
   collection: (...args: unknown[]) => mockCollection(...args),
   doc: (...args: unknown[]) => mockDoc(...args),
+  getDoc: (...args: unknown[]) => mockGetDoc(...args),
+  getDocs: (...args: unknown[]) => mockGetDocs(...args),
   addDoc: (...args: unknown[]) => mockAddDoc(...args),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
   deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
@@ -38,10 +43,10 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('../../firebase', () => ({ auth: {}, db: {} }))
 
-const { subscribeToMoviesForList, addMovie, updateMovie, deleteMovie, removeListFromAllMovies } =
+const { subscribeToMoviesForList, subscribeToAllMovies, getMovie, addMovie, updateMovie, deleteMovie, removeListFromAllMovies } =
   await import('../../services/movieService')
 
-const fakeTs = new MockTimestamp(1000, 0)
+const fakeTs = new MockTimestamp(1000, 0) as unknown as Timestamp
 
 function makeDoc(id: string, data: Record<string, unknown>) {
   return { id, data: () => data, ref: { id } }
@@ -55,12 +60,13 @@ beforeEach(() => {
   mockWhere.mockReturnValue('whereRef')
   mockWriteBatch.mockReturnValue({ update: mockBatchUpdate, commit: mockBatchCommit })
   mockBatchCommit.mockResolvedValue(undefined)
+  mockGetDocs.mockResolvedValue({ empty: true, docs: [] })
 })
 
 describe('subscribeToMoviesForList', () => {
   it('maps snapshot docs to Movie objects', () => {
     const unsub = vi.fn()
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({
         docs: [
           makeDoc('m1', {
@@ -104,7 +110,7 @@ describe('subscribeToMoviesForList', () => {
   })
 
   it('defaults to WANT_TO_WATCH for invalid status', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [makeDoc('m2', { status: 'INVALID_STATUS' })] })
       return vi.fn()
     })
@@ -114,7 +120,7 @@ describe('subscribeToMoviesForList', () => {
   })
 
   it('defaults to WANT_TO_WATCH when status is missing', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [makeDoc('m3', {})] })
       return vi.fn()
     })
@@ -124,7 +130,7 @@ describe('subscribeToMoviesForList', () => {
   })
 
   it('converts numeric year to string', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [makeDoc('m4', { year: 1999 })] })
       return vi.fn()
     })
@@ -134,7 +140,7 @@ describe('subscribeToMoviesForList', () => {
   })
 
   it('defaults string fields to empty string when missing', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [makeDoc('m5', {})] })
       return vi.fn()
     })
@@ -153,7 +159,7 @@ describe('subscribeToMoviesForList', () => {
   })
 
   it('filters non-string values from listIds', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [makeDoc('m6', { listIds: ['a', 123, null, 'b'] })] })
       return vi.fn()
     })
@@ -163,7 +169,7 @@ describe('subscribeToMoviesForList', () => {
   })
 
   it('falls back to Timestamp.now() when createdAt is not a Timestamp instance', () => {
-    mockOnSnapshot.mockImplementation((ref, onNext) => {
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
       onNext({ docs: [makeDoc('m7', { createdAt: 'not-a-timestamp' })] })
       return vi.fn()
     })
@@ -175,12 +181,49 @@ describe('subscribeToMoviesForList', () => {
 
   it('calls onError on snapshot error', () => {
     const err = new Error('permission denied')
-    mockOnSnapshot.mockImplementation((ref, onNext, onErr) => {
+    mockOnSnapshot.mockImplementation((_ref, _onNext, onErr) => {
       onErr(err)
       return vi.fn()
     })
     const onError = vi.fn()
     subscribeToMoviesForList('uid1', 'list1', vi.fn(), onError)
+    expect(onError).toHaveBeenCalledWith(err)
+  })
+})
+
+describe('subscribeToAllMovies', () => {
+  it('maps all docs to Movie objects without list filter', () => {
+    const unsub = vi.fn()
+    mockOnSnapshot.mockImplementation((_ref, onNext) => {
+      onNext({
+        docs: [
+          makeDoc('m1', { title: 'Inception', year: 2010, genre: 'Sci-Fi', status: 'WATCHED', rating: 5,
+            description: '', notes: '', trailerUrl: '', posterUrl: '', listIds: ['list1'], createdAt: fakeTs }),
+          makeDoc('m2', { title: 'Dune', year: 2021, genre: 'Sci-Fi', status: 'WANT_TO_WATCH', rating: null,
+            description: '', notes: '', trailerUrl: '', posterUrl: '', listIds: ['list2'], createdAt: fakeTs }),
+        ],
+      })
+      return unsub
+    })
+    const onData = vi.fn()
+    const result = subscribeToAllMovies('uid1', onData)
+    expect(onData).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'm1', title: 'Inception' }),
+        expect.objectContaining({ id: 'm2', title: 'Dune' }),
+      ]),
+    )
+    expect(result).toBe(unsub)
+  })
+
+  it('calls onError on snapshot error', () => {
+    const err = new Error('permission denied')
+    mockOnSnapshot.mockImplementation((_ref, _onNext, onErr) => {
+      onErr(err)
+      return vi.fn()
+    })
+    const onError = vi.fn()
+    subscribeToAllMovies('uid1', vi.fn(), onError)
     expect(onError).toHaveBeenCalledWith(err)
   })
 })
@@ -268,20 +311,42 @@ describe('deleteMovie', () => {
   })
 })
 
-// Helper: defer callback so `unsub` is assigned before it fires (mirrors real Firebase behavior)
-function deferredSnapshot(snapshot: unknown) {
-  return (q: unknown, onNext: (snap: unknown) => void, onErr?: (err: Error) => void) => {
-    const unsub = vi.fn()
-    Promise.resolve().then(() => {
-      try { onNext(snapshot) } catch (e) { onErr?.(e as Error) }
+describe('getMovie', () => {
+  it('returns null when doc does not exist', async () => {
+    mockGetDoc.mockResolvedValue({ exists: () => false })
+    const result = await getMovie('uid1', 'missing')
+    expect(result).toBeNull()
+  })
+
+  it('returns a mapped Movie when doc exists', async () => {
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      id: 'm1',
+      data: () => ({
+        title: 'Inception',
+        year: 2010,
+        genre: 'Sci-Fi',
+        status: WatchStatus.WATCHED,
+        rating: 5,
+        description: 'Dreams',
+        notes: 'Great',
+        trailerUrl: 'https://yt.com/watch?v=abc',
+        posterUrl: 'https://img.com/poster.jpg',
+        listIds: ['list1'],
+        createdAt: fakeTs,
+      }),
     })
-    return unsub
-  }
-}
+    const movie = await getMovie('uid1', 'm1')
+    expect(movie).not.toBeNull()
+    expect(movie?.title).toBe('Inception')
+    expect(movie?.year).toBe('2010')
+    expect(movie?.status).toBe(WatchStatus.WATCHED)
+  })
+})
 
 describe('removeListFromAllMovies', () => {
   it('skips batch when snapshot is empty', async () => {
-    mockOnSnapshot.mockImplementation(deferredSnapshot({ empty: true, docs: [] }))
+    mockGetDocs.mockResolvedValue({ empty: true, docs: [] })
     await removeListFromAllMovies('uid1', 'listId')
     expect(mockWriteBatch).not.toHaveBeenCalled()
   })
@@ -289,7 +354,7 @@ describe('removeListFromAllMovies', () => {
   it('batch-updates all matching movies to remove listId', async () => {
     const doc1 = { ref: 'ref1', data: () => ({ listIds: ['listId', 'other'] }) }
     const doc2 = { ref: 'ref2', data: () => ({ listIds: ['listId'] }) }
-    mockOnSnapshot.mockImplementation(deferredSnapshot({ empty: false, docs: [doc1, doc2] }))
+    mockGetDocs.mockResolvedValue({ empty: false, docs: [doc1, doc2] })
     await removeListFromAllMovies('uid1', 'listId')
     expect(mockBatchUpdate).toHaveBeenCalledWith('ref1', { listIds: ['other'] })
     expect(mockBatchUpdate).toHaveBeenCalledWith('ref2', { listIds: [] })
@@ -298,7 +363,7 @@ describe('removeListFromAllMovies', () => {
 
   it('handles non-array listIds in doc gracefully', async () => {
     const doc1 = { ref: 'ref1', data: () => ({ listIds: null }) }
-    mockOnSnapshot.mockImplementation(deferredSnapshot({ empty: false, docs: [doc1] }))
+    mockGetDocs.mockResolvedValue({ empty: false, docs: [doc1] })
     await removeListFromAllMovies('uid1', 'listId')
     expect(mockBatchUpdate).toHaveBeenCalledWith('ref1', { listIds: [] })
   })

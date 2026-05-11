@@ -1,4 +1,6 @@
-import { useState, KeyboardEvent } from 'react'
+import { useState, useRef, KeyboardEvent } from 'react'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { recordError } from '../../services/logger'
 
 interface RenameListDialogProps {
   currentName: string
@@ -10,6 +12,8 @@ export function RenameListDialog({ currentName, onConfirm, onClose }: RenameList
   const [name, setName] = useState(currentName)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef)
 
   async function handleSubmit() {
     const trimmed = name.trim()
@@ -23,8 +27,8 @@ export function RenameListDialog({ currentName, onConfirm, onClose }: RenameList
       await onConfirm(trimmed)
       onClose()
     } catch (e) {
-      setError('Failed to rename list. Please try again.')
-      console.error(e)
+      setError(e instanceof Error ? e.message : 'Failed to rename list. Please try again.')
+      recordError(e, 'renameList')
     } finally {
       setLoading(false)
     }
@@ -37,14 +41,21 @@ export function RenameListDialog({ currentName, onConfirm, onClose }: RenameList
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Rename List</h2>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rename-list-title"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6"
+      >
+        <h2 id="rename-list-title" className="text-lg font-bold text-gray-900 dark:text-white mb-4">Rename List</h2>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="List name"
+          maxLength={100}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-2"
           autoFocus
           disabled={loading}

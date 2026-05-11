@@ -54,7 +54,7 @@ describe('RenameListDialog', () => {
     const user = userEvent.setup()
     renderDialog('Old', onConfirm)
     await user.click(screen.getByText('Save'))
-    expect(screen.getByText('Failed to rename list. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('fail')).toBeInTheDocument()
   })
 
   it('calls onClose when Cancel is clicked', async () => {

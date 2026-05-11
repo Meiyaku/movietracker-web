@@ -1,10 +1,15 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { fetchRemoteConfig } from './services/remoteConfigService'
 import { ThemeProvider } from './context/ThemeContext'
 import { AuthPage } from './pages/AuthPage'
 import { HomePage } from './pages/HomePage'
 import { MovieDetailPage } from './pages/MovieDetailPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { OfflineBanner } from './components/OfflineBanner'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { useOnlineStatus } from './hooks/useOnlineStatus'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -43,7 +48,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const online = useOnlineStatus()
   return (
+    <>
+      {!online && <OfflineBanner />}
     <Routes>
       <Route
         path="/auth"
@@ -79,17 +87,22 @@ function AppRoutes() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }
 
 export default function App() {
+  useEffect(() => { fetchRemoteConfig() }, [])
+
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }

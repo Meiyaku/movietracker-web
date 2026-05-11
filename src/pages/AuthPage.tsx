@@ -1,8 +1,10 @@
-import { useState, FormEvent } from 'react'
+import { useState, useRef, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signIn, signUp, sendPasswordReset } from '../services/authService'
 import { createDefaultList } from '../services/movieListService'
+import { recordError } from '../services/logger'
 import { useTheme } from '../context/ThemeContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 type Tab = 'login' | 'signup'
 
@@ -32,6 +34,10 @@ function extractErrorCode(error: unknown): string {
   return ''
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+}
+
 export function AuthPage() {
   const navigate = useNavigate()
   const { isDark } = useTheme()
@@ -50,7 +56,8 @@ export function AuthPage() {
   const [resetEmail, setResetEmail] = useState('')
   const [resetLoading, setResetLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
-  const [resetError, setResetError] = useState<string | null>(null)
+  const forgotDialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(forgotDialogRef, showForgot)
 
   function switchTab(t: Tab) {
     setTab(t)
@@ -64,11 +71,13 @@ export function AuthPage() {
   async function handleLogin(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!isValidEmail(email)) { setError('Please enter a valid email address.'); return }
     setLoading(true)
     try {
       await signIn(email, password)
       navigate('/')
     } catch (err) {
+      recordError(err, 'signIn')
       setError(getAuthErrorMessage(extractErrorCode(err)))
     } finally {
       setLoading(false)
@@ -78,6 +87,7 @@ export function AuthPage() {
   async function handleSignUp(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!isValidEmail(email)) { setError('Please enter a valid email address.'); return }
     if (password !== confirm) {
       setError('Passwords do not match.')
       return
@@ -92,6 +102,7 @@ export function AuthPage() {
       await createDefaultList(user.uid)
       navigate('/')
     } catch (err) {
+      recordError(err, 'signUp')
       setError(getAuthErrorMessage(extractErrorCode(err)))
     } finally {
       setLoading(false)
@@ -100,12 +111,12 @@ export function AuthPage() {
 
   async function handlePasswordReset(e: FormEvent) {
     e.preventDefault()
-    setResetError(null)
     setResetLoading(true)
     try {
       await sendPasswordReset(resetEmail)
       setResetSent(true)
-    } catch {
+    } catch (err) {
+      recordError(err, 'passwordReset')
       // Show generic success to avoid user enumeration
       setResetSent(true)
     } finally {
@@ -205,7 +216,7 @@ export function AuthPage() {
                 <div className="text-right">
                   <button
                     type="button"
-                    onClick={() => { setShowForgot(true); setResetEmail(email); setResetSent(false); setResetError(null) }}
+                    onClick={() => { setShowForgot(true); setResetEmail(email); setResetSent(false) }}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     Forgot Password?
@@ -319,8 +330,14 @@ export function AuthPage() {
       {/* Forgot Password Dialog */}
       {showForgot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Reset Password</h2>
+          <div
+            ref={forgotDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="forgot-password-title"
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6"
+          >
+            <h2 id="forgot-password-title" className="text-lg font-bold text-gray-900 dark:text-white mb-2">Reset Password</h2>
             {resetSent ? (
               <>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -348,7 +365,6 @@ export function AuthPage() {
                   autoFocus
                   disabled={resetLoading}
                 />
-                {resetError && <p className="text-xs text-red-500 mb-3">{resetError}</p>}
                 <div className="flex gap-2 mt-4">
                   <button
                     type="button"

@@ -30,7 +30,7 @@ beforeEach(() => {
     'matchMedia',
     vi.fn().mockImplementation(() => ({
       matches: mockMatchMediaDark,
-      addEventListener: (event: string, cb: (e: { matches: boolean }) => void) => {
+      addEventListener: (_event: string, cb: (e: { matches: boolean }) => void) => {
         mediaListeners.push(cb)
       },
       removeEventListener: vi.fn(),

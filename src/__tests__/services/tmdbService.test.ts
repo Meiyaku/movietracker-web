@@ -17,47 +17,98 @@ beforeEach(() => {
 })
 
 describe('searchMovies', () => {
-  it('maps results correctly', async () => {
+  it('maps movie results correctly', async () => {
     mockFetch.mockReturnValueOnce(
       ok({
         results: [
-          { id: 1, title: 'Inception', release_date: '2010-07-16', overview: 'Dreams', poster_path: '/abc.jpg' },
-          { id: 2, original_title: 'No Title', release_date: null, overview: null, poster_path: null },
+          {
+            id: 1,
+            media_type: 'movie',
+            title: 'Inception',
+            release_date: '2010-07-16',
+            overview: 'Dreams',
+            poster_path: '/abc.jpg',
+            vote_average: 8.4,
+            genre_ids: [878, 28],
+          },
         ],
       }),
     )
-
     const results = await searchMovies('Inception')
-
-    expect(results).toHaveLength(2)
-    expect(results[0]).toEqual({
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({
       id: 1,
+      mediaType: 'movie',
       title: 'Inception',
+      name: null,
       releaseDate: '2010-07-16',
+      firstAirDate: null,
       overview: 'Dreams',
       posterPath: '/abc.jpg',
+      voteAverage: 8.4,
     })
-    expect(results[1]).toEqual({
-      id: 2,
-      title: 'No Title',
-      releaseDate: null,
-      overview: null,
-      posterPath: null,
-    })
+    expect(results[0].genre).toContain('Science Fiction')
+    expect(results[0].genre).toContain('Action')
   })
 
-  it('uses original_title when title is missing', async () => {
+  it('maps TV show results correctly', async () => {
     mockFetch.mockReturnValueOnce(
-      ok({ results: [{ id: 3, original_title: 'Parasite', release_date: '2019-05-30' }] }),
+      ok({
+        results: [
+          {
+            id: 2,
+            media_type: 'tv',
+            name: 'Breaking Bad',
+            first_air_date: '2008-01-20',
+            overview: 'Chemistry teacher',
+            poster_path: '/bb.jpg',
+            vote_average: 9.5,
+            genre_ids: [18],
+          },
+        ],
+      }),
     )
-    const results = await searchMovies('Parasite')
-    expect(results[0].title).toBe('Parasite')
+    const results = await searchMovies('Breaking Bad')
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({
+      id: 2,
+      mediaType: 'tv',
+      title: null,
+      name: 'Breaking Bad',
+      firstAirDate: '2008-01-20',
+      releaseDate: null,
+    })
   })
 
-  it('falls back to empty string when both title fields are missing', async () => {
-    mockFetch.mockReturnValueOnce(ok({ results: [{ id: 4 }] }))
-    const results = await searchMovies('?')
-    expect(results[0].title).toBe('')
+  it('filters out non-movie/tv results', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({
+        results: [
+          { id: 1, media_type: 'person', name: 'Brad Pitt' },
+          { id: 2, media_type: 'movie', title: 'Fight Club', release_date: '1999-10-15', genre_ids: [] },
+        ],
+      }),
+    )
+    const results = await searchMovies('Brad Pitt')
+    expect(results).toHaveLength(1)
+    expect(results[0].id).toBe(2)
+  })
+
+  it('sets genre to null when no genre_ids', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({ results: [{ id: 3, media_type: 'movie', title: 'Unknown' }] }),
+    )
+    const results = await searchMovies('Unknown')
+    expect(results[0].genre).toBeNull()
+  })
+
+  it('uses search/multi endpoint', async () => {
+    mockFetch.mockReturnValueOnce(ok({ results: [] }))
+    await searchMovies('test')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('search/multi'),
+      expect.anything(),
+    )
   })
 
   it('throws on non-ok response', async () => {
@@ -111,6 +162,24 @@ describe('getTrailerUrl', () => {
     )
     const url = await getTrailerUrl(4)
     expect(url).toBeNull()
+  })
+
+  it('uses movie path by default', async () => {
+    mockFetch.mockReturnValueOnce(ok({ results: [] }))
+    await getTrailerUrl(1)
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/movie/1/videos'),
+      expect.anything(),
+    )
+  })
+
+  it('uses tv path for TV media type', async () => {
+    mockFetch.mockReturnValueOnce(ok({ results: [] }))
+    await getTrailerUrl(1, 'tv')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/tv/1/videos'),
+      expect.anything(),
+    )
   })
 
   it('throws on non-ok response', async () => {

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { MovieCard } from '../../components/MovieCard'
-import { WatchStatus } from '../../types'
+import { WatchStatus, Movie } from '../../types'
 import { Timestamp } from 'firebase/firestore'
 
 vi.mock('firebase/firestore', () => ({
@@ -16,7 +16,7 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-const baseMovie = {
+const baseMovie: Movie = {
   id: 'movie1',
   title: 'Inception',
   year: '2010',
@@ -45,27 +45,31 @@ describe('MovieCard', () => {
     expect(screen.getByText('Inception')).toBeInTheDocument()
   })
 
-  it('renders movie year', () => {
+  it('renders year and genre in meta line', () => {
     renderCard()
+    expect(screen.getByText('2010 · Sci-Fi')).toBeInTheDocument()
+  })
+
+  it('renders year only when genre is empty', () => {
+    renderCard({ ...baseMovie, genre: '' })
     expect(screen.getByText('2010')).toBeInTheDocument()
   })
 
-  it('does not render year paragraph when year is empty', () => {
-    const { container } = renderCard({ ...baseMovie, year: '' })
-    const yearEl = container.querySelector('p.text-xs')
-    expect(yearEl).toBeNull()
+  it('does not render meta line when both year and genre are empty', () => {
+    const { container } = renderCard({ ...baseMovie, year: '', genre: '' })
+    expect(container.querySelector('p.text-xs')).toBeNull()
   })
 
   it('renders poster image when posterUrl is set', () => {
-    renderCard()
-    const img = screen.getByRole('img', { name: 'Inception' })
-    expect(img).toBeInTheDocument()
-    expect(img).toHaveAttribute('src', 'https://img.com/poster.jpg')
+    const { container } = renderCard()
+    const posterImg = container.querySelector('img')
+    expect(posterImg).toBeInTheDocument()
+    expect(posterImg).toHaveAttribute('src', 'https://img.com/poster.jpg')
   })
 
   it('renders fallback icon SVG when posterUrl is empty', () => {
     const { container } = renderCard({ ...baseMovie, posterUrl: '' })
-    expect(screen.queryByRole('img')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
@@ -93,6 +97,13 @@ describe('MovieCard', () => {
       s.getAttribute('class')?.includes('text-star'),
     )
     expect(filled).toHaveLength(0)
+  })
+
+  it('has combined aria-label on card button', () => {
+    renderCard()
+    expect(
+      screen.getByRole('button', { name: 'Inception, 2010, Sci-Fi, Watched, 4 out of 5 stars' }),
+    ).toBeInTheDocument()
   })
 
   it('navigates to movie detail page on click', async () => {

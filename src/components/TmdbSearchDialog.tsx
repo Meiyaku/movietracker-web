@@ -1,6 +1,8 @@
 import { useState, useRef, KeyboardEvent } from 'react'
 import { TmdbSearchResult } from '../types'
 import { searchMovies, getTrailerUrl, getThumbnailUrl, getPosterUrl } from '../services/tmdbService'
+import { useFocusTrap } from '../hooks/useFocusTrap'
+import { recordError } from '../services/logger'
 
 interface TmdbSearchDialogProps {
   onSelect: (data: {
@@ -9,6 +11,7 @@ interface TmdbSearchDialogProps {
     posterUrl: string
     trailerUrl: string
     description: string
+    genre: string
   }) => void
   onClose: () => void
 }
@@ -20,6 +23,8 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
   const [selectingId, setSelectingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef)
 
   async function handleSearch() {
     const q = query.trim()
@@ -33,7 +38,7 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
       if (res.length === 0) setError('No results found.')
     } catch (e) {
       setError('Search failed. Check your network connection.')
-      console.error(e)
+      recordError(e, 'tmdbSearch')
     } finally {
       setLoading(false)
     }
@@ -43,24 +48,19 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
     if (e.key === 'Enter') handleSearch()
   }
 
-  async function handleSelect(movie: TmdbSearchResult) {
-    setSelectingId(movie.id)
+  async function handleSelect(result: TmdbSearchResult) {
+    setSelectingId(result.id)
+    const displayTitle = result.title ?? result.name ?? ''
+    const dateStr = result.releaseDate ?? result.firstAirDate
+    const year = dateStr ? dateStr.substring(0, 4) : ''
+    const posterUrl = result.posterPath ? getPosterUrl(result.posterPath) : ''
+    const genre = result.genre ?? ''
     try {
-      const trailerUrl = await getTrailerUrl(movie.id)
-      const year = movie.releaseDate ? movie.releaseDate.substring(0, 4) : ''
-      const posterUrl = movie.posterPath ? getPosterUrl(movie.posterPath) : ''
-      onSelect({
-        title: movie.title,
-        year,
-        posterUrl,
-        trailerUrl: trailerUrl ?? '',
-        description: movie.overview ?? '',
-      })
+      const trailerUrl = await getTrailerUrl(result.id, result.mediaType)
+      onSelect({ title: displayTitle, year, posterUrl, trailerUrl: trailerUrl ?? '', description: result.overview ?? '', genre })
     } catch (e) {
-      console.error('Failed to fetch trailer:', e)
-      const year = movie.releaseDate ? movie.releaseDate.substring(0, 4) : ''
-      const posterUrl = movie.posterPath ? getPosterUrl(movie.posterPath) : ''
-      onSelect({ title: movie.title, year, posterUrl, trailerUrl: '', description: movie.overview ?? '' })
+      recordError(e, 'fetchTrailer')
+      onSelect({ title: displayTitle, year, posterUrl, trailerUrl: '', description: result.overview ?? '', genre })
     } finally {
       setSelectingId(null)
     }
@@ -68,10 +68,16 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh]">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tmdb-search-title"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Search TMDB</h2>
+          <h2 id="tmdb-search-title" className="text-lg font-bold text-gray-900 dark:text-white">Search TMDB</h2>
           <button
             onClick={onClose}
             className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
@@ -109,52 +115,59 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
           {error && (
             <p className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">{error}</p>
           )}
-          {results.map((movie) => (
-            <button
-              key={movie.id}
-              onClick={() => handleSelect(movie)}
-              disabled={selectingId != null}
-              className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-100 dark:border-gray-800 last:border-0"
-            >
-              {/* Thumbnail */}
-              <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden bg-gray-200 dark:bg-gray-700">
-                {movie.posterPath ? (
-                  <img
-                    src={getThumbnailUrl(movie.posterPath)}
-                    alt={movie.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-gray-900 dark:text-white leading-tight">
-                  {movie.title}
-                  {selectingId === movie.id && (
-                    <span className="ml-2 text-xs text-blue-500">Loading…</span>
+          {results.map((result) => {
+            const displayTitle = result.title ?? result.name
+            const dateStr = result.releaseDate ?? result.firstAirDate
+            const year = dateStr ? dateStr.substring(0, 4) : null
+            return (
+              <button
+                key={result.id}
+                onClick={() => handleSelect(result)}
+                disabled={selectingId != null}
+                className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-100 dark:border-gray-800 last:border-0"
+              >
+                {/* Thumbnail */}
+                <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden bg-gray-200 dark:bg-gray-700">
+                  {result.posterPath ? (
+                    <img
+                      src={getThumbnailUrl(result.posterPath)}
+                      alt={displayTitle ?? ''}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                      </svg>
+                    </div>
                   )}
-                </p>
-                {movie.releaseDate && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {movie.releaseDate.substring(0, 4)}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-gray-900 dark:text-white leading-tight">
+                    {displayTitle}
+                    {selectingId === result.id && (
+                      <span className="ml-2 text-xs text-blue-500">Loading…</span>
+                    )}
                   </p>
-                )}
-                {movie.overview && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                    {movie.overview}
-                  </p>
-                )}
-              </div>
-            </button>
-          ))}
+                  {(year || (result.voteAverage != null && result.voteAverage > 0)) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {year}
+                      {year && result.voteAverage != null && result.voteAverage > 0 && ' · '}
+                      {result.voteAverage != null && result.voteAverage > 0 && `★ ${result.voteAverage.toFixed(1)}`}
+                    </p>
+                  )}
+                  {result.overview && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                      {result.overview}
+                    </p>
+                  )}
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

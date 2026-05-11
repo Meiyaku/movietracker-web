@@ -1,20 +1,50 @@
 import { TmdbSearchResult } from '../types'
+import { tmdbApiKey } from './remoteConfigService'
 
-const BEARER_TOKEN = import.meta.env.VITE_TMDB_BEARER_TOKEN as string
+const BEARER_TOKEN_FALLBACK = import.meta.env.VITE_TMDB_BEARER_TOKEN as string
 const BASE_URL = 'https://api.themoviedb.org/3'
+const TIMEOUT_MS = 10_000
 
-const headers = {
-  Authorization: `Bearer ${BEARER_TOKEN}`,
-  'Content-Type': 'application/json',
+function getHeaders(): Record<string, string> {
+  const token = tmdbApiKey() || BEARER_TOKEN_FALLBACK
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  }
 }
 
-interface TmdbMovieDto {
+async function fetchWithTimeout(url: string): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    return await fetch(url, { headers: getHeaders(), signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const TMDB_GENRES: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
+  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
+  14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music',
+  9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
+  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+  10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News',
+  10764: 'Reality', 10765: 'Sci-Fi & Fantasy', 10766: 'Soap',
+  10767: 'Talk', 10768: 'War & Politics',
+}
+
+interface TmdbMultiDto {
   id: number
+  media_type: string
   title?: string
-  original_title?: string
+  name?: string
   overview?: string
   release_date?: string
+  first_air_date?: string
   poster_path?: string
+  vote_average?: number
+  genre_ids?: number[]
 }
 
 interface TmdbVideoDto {
@@ -25,7 +55,7 @@ interface TmdbVideoDto {
 }
 
 interface TmdbSearchResponse {
-  results: TmdbMovieDto[]
+  results: TmdbMultiDto[]
 }
 
 interface TmdbVideosResponse {
@@ -33,22 +63,32 @@ interface TmdbVideosResponse {
 }
 
 export async function searchMovies(query: string): Promise<TmdbSearchResult[]> {
-  const url = `${BASE_URL}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`
-  const res = await fetch(url, { headers })
+  const url = `${BASE_URL}/search/multi?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`
+  const res = await fetchWithTimeout(url)
   if (!res.ok) throw new Error(`TMDB search failed: ${res.status}`)
   const data: TmdbSearchResponse = await res.json()
-  return data.results.map((dto) => ({
-    id: dto.id,
-    title: dto.title ?? dto.original_title ?? '',
-    releaseDate: dto.release_date ?? null,
-    overview: dto.overview ?? null,
-    posterPath: dto.poster_path ?? null,
-  }))
+  return data.results
+    .filter((dto) => dto.media_type === 'movie' || dto.media_type === 'tv')
+    .map((dto) => {
+      const genreNames = (dto.genre_ids ?? []).map((id) => TMDB_GENRES[id]).filter(Boolean)
+      return {
+        id: dto.id,
+        mediaType: dto.media_type as 'movie' | 'tv',
+        title: dto.title ?? null,
+        name: dto.name ?? null,
+        releaseDate: dto.release_date ?? null,
+        firstAirDate: dto.first_air_date ?? null,
+        overview: dto.overview ?? null,
+        posterPath: dto.poster_path ?? null,
+        voteAverage: dto.vote_average ?? null,
+        genre: genreNames.length > 0 ? genreNames.join(' / ') : null,
+      }
+    })
 }
 
-export async function getTrailerUrl(movieId: number): Promise<string | null> {
-  const url = `${BASE_URL}/movie/${movieId}/videos`
-  const res = await fetch(url, { headers })
+export async function getTrailerUrl(movieId: number, mediaType: 'movie' | 'tv' = 'movie'): Promise<string | null> {
+  const url = `${BASE_URL}/${mediaType}/${movieId}/videos`
+  const res = await fetchWithTimeout(url)
   if (!res.ok) throw new Error(`TMDB videos failed: ${res.status}`)
   const data: TmdbVideosResponse = await res.json()
   const trailers = data.results.filter((v) => v.site === 'YouTube' && v.type === 'Trailer')
