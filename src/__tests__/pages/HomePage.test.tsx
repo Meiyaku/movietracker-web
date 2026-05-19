@@ -140,6 +140,58 @@ describe('HomePage', () => {
     expect(screen.getByText(/No movies match/)).toBeInTheDocument()
   })
 
+  it('shows spelling hint and Add Movie button when search has no results', async () => {
+    const user = userEvent.setup()
+    renderHomePage()
+    await waitFor(() => screen.getAllByTestId('movie-card'))
+    await user.type(screen.getByPlaceholderText('Search movies…'), 'zzznomatch')
+    expect(screen.getByText('Check the spelling')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add Movie' })).toBeInTheDocument()
+  })
+
+  it('navigates with initialTmdbQuery when Add Movie clicked from empty search', async () => {
+    const user = userEvent.setup()
+    renderHomePage()
+    await waitFor(() => screen.getAllByTestId('movie-card'))
+    await user.type(screen.getByPlaceholderText('Search movies…'), 'zzznomatch')
+    await user.click(screen.getByRole('button', { name: 'Add Movie' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/movies/new', {
+      state: { initialTmdbQuery: 'zzznomatch' },
+    })
+  })
+
+  it('does not show Add Movie button when search matches movies', async () => {
+    const user = userEvent.setup()
+    renderHomePage()
+    await waitFor(() => screen.getAllByTestId('movie-card'))
+    await user.type(screen.getByPlaceholderText('Search movies…'), 'Inception')
+    expect(screen.queryByRole('button', { name: 'Add Movie' })).not.toBeInTheDocument()
+  })
+
+  it('Reset Filter button restores all movies after a filter is applied', async () => {
+    const user = userEvent.setup()
+    renderHomePage()
+    await waitFor(() => screen.getAllByTestId('movie-card'))
+    // open filter dropdown and select Watched
+    await user.click(screen.getByLabelText('Filter by watch status'))
+    await user.click(screen.getByText('Watched'))
+    // both movies are WatchStatus.WATCHED so still visible — but verify reset works
+    await user.click(screen.getByLabelText('Filter by watch status'))
+    await user.click(screen.getByRole('button', { name: 'Reset Filter' }))
+    // dropdown should close and all movies still shown
+    expect(screen.queryByText('Reset Filter')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('movie-card')).toHaveLength(2)
+  })
+
+  it('Reset Sort button closes the sort dropdown', async () => {
+    const user = userEvent.setup()
+    renderHomePage()
+    await waitFor(() => screen.getAllByTestId('movie-card'))
+    await user.click(screen.getByLabelText('Sort movies'))
+    await user.click(screen.getByRole('button', { name: 'Reset Sort' }))
+    expect(screen.queryByText('Reset Sort')).not.toBeInTheDocument()
+  })
+
   it('navigates to add movie on FAB click', async () => {
     const user = userEvent.setup()
     renderHomePage()

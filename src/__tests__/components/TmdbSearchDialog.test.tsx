@@ -187,4 +187,22 @@ describe('TmdbSearchDialog', () => {
     await user.type(screen.getByPlaceholderText('Search for a movie...'), '   {Enter}')
     expect(mockSearchMovies).not.toHaveBeenCalled()
   })
+
+  it('pre-fills the search input when initialQuery is provided', () => {
+    render(<TmdbSearchDialog onSelect={vi.fn()} onClose={vi.fn()} initialQuery="Avengers" />)
+    expect(screen.getByPlaceholderText('Search for a movie...')).toHaveValue('Avengers')
+  })
+
+  it('automatically triggers search when initialQuery is provided', async () => {
+    mockSearchMovies.mockResolvedValue(sampleResults)
+    render(<TmdbSearchDialog onSelect={vi.fn()} onClose={vi.fn()} initialQuery="Avengers" />)
+    await waitFor(() => {
+      expect(mockSearchMovies).toHaveBeenCalledWith('Avengers')
+    })
+  })
+
+  it('does not auto-search when initialQuery is empty', () => {
+    render(<TmdbSearchDialog onSelect={vi.fn()} onClose={vi.fn()} initialQuery="" />)
+    expect(mockSearchMovies).not.toHaveBeenCalled()
+  })
 })

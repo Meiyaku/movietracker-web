@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { TmdbSearchResult } from '../types'
 import { searchMovies, getTrailerUrl, getThumbnailUrl, getPosterUrl } from '../services/tmdbService'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -14,10 +14,11 @@ interface TmdbSearchDialogProps {
     genre: string
   }) => void
   onClose: () => void
+  initialQuery?: string
 }
 
-export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
-  const [query, setQuery] = useState('')
+export function TmdbSearchDialog({ onSelect, onClose, initialQuery = '' }: TmdbSearchDialogProps) {
+  const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<TmdbSearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [selectingId, setSelectingId] = useState<number | null>(null)
@@ -26,14 +27,13 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef)
 
-  async function handleSearch() {
-    const q = query.trim()
-    if (!q) return
+  async function performSearch(q: string) {
+    if (!q.trim()) return
     setLoading(true)
     setError(null)
     setResults([])
     try {
-      const res = await searchMovies(q)
+      const res = await searchMovies(q.trim())
       setResults(res)
       if (res.length === 0) setError('No results found.')
     } catch (e) {
@@ -43,6 +43,13 @@ export function TmdbSearchDialog({ onSelect, onClose }: TmdbSearchDialogProps) {
       setLoading(false)
     }
   }
+
+  function handleSearch() { performSearch(query) }
+
+  useEffect(() => {
+    if (initialQuery.trim()) performSearch(initialQuery.trim())
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') handleSearch()

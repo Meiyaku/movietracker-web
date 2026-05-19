@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Timestamp } from 'firebase/firestore'
 import { EditListDialog } from '../../../components/dialogs/EditListDialog'
 import { MovieList } from '../../../types'
 
@@ -10,7 +11,7 @@ function makeList(overrides: Partial<MovieList> = {}): MovieList {
     name: 'Action',
     subtitle: undefined,
     description: undefined,
-    createdAt: new Date(),
+    createdAt: { seconds: 1000, nanoseconds: 0 } as unknown as Timestamp,
     ...overrides,
   }
 }

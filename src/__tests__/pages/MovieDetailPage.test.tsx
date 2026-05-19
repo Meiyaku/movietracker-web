@@ -6,12 +6,13 @@ import { WatchStatus } from '../../types'
 
 const mockNavigate = vi.fn()
 let mockId = 'movie-1'
+let mockLocationState: Record<string, unknown> | null = null
 
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useNavigate: () => mockNavigate,
   useParams: () => ({ id: mockId }),
-  useLocation: () => ({ state: null, pathname: `/movies/${mockId}` }),
+  useLocation: () => ({ state: mockLocationState, pathname: `/movies/${mockId}` }),
 }))
 
 vi.mock('../../context/AuthContext', () => {
@@ -81,6 +82,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks()
   mockId = 'movie-1'
+  mockLocationState = null
   mockGetMovie.mockResolvedValue(fakeMovie)
   mockCheckDuplicate.mockResolvedValue(false)
   mockSubscribeToLists.mockImplementation((_uid: string, onData: (l: unknown[]) => void) => {
@@ -145,6 +147,18 @@ describe('MovieDetailPage — new movie', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(mockAddMovie).toHaveBeenCalled())
     expect(mockNavigate).toHaveBeenCalledWith('/movies/new-movie-id', { replace: true })
+  })
+
+  it('opens TMDB dialog immediately when initialTmdbQuery is in location state', async () => {
+    mockLocationState = { initialTmdbQuery: 'Avengers' }
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('tmdb-dialog')).toBeInTheDocument())
+  })
+
+  it('does not open TMDB dialog when no initialTmdbQuery in location state', async () => {
+    renderPage()
+    await waitFor(() => screen.getByText('Search TMDB to auto-fill details'))
+    expect(screen.queryByTestId('tmdb-dialog')).not.toBeInTheDocument()
   })
 })
 

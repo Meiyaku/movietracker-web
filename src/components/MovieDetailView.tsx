@@ -99,17 +99,6 @@ export function MovieDetailView({ movie, lists }: Props) {
           )}
         </div>
 
-        {movie.description && (
-          <div>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-              Description
-            </p>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-              {movie.description}
-            </p>
-          </div>
-        )}
-
         {movie.notes && (
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
@@ -117,6 +106,17 @@ export function MovieDetailView({ movie, lists }: Props) {
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {movie.notes}
+            </p>
+          </div>
+        )}
+
+        {movie.description && (
+          <div>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+              Description
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+              {movie.description}
             </p>
           </div>
         )}

@@ -347,6 +347,13 @@ export function HomePage() {
                       {watchFilterLabels[filter]}
                     </button>
                   ))}
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                  <button
+                    onClick={() => { setWatchFilter(WatchFilter.ALL); setFilterOpen(false) }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Reset Filter
+                  </button>
                 </div>
               )}
             </div>
@@ -374,6 +381,13 @@ export function HomePage() {
                       {sortLabels[order]}
                     </button>
                   ))}
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                  <button
+                    onClick={() => { setSortOrder(SortOrder.TITLE_ASC); setSortOpen(false) }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Reset Sort
+                  </button>
                 </div>
               )}
             </div>
@@ -407,13 +421,21 @@ export function HomePage() {
               </button>
             </div>
           ) : filteredAndSorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 text-center">
+            <div className="flex flex-col items-center justify-center py-10 text-center">
               {searchQuery ? (
                 <>
                   <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">No movies match "{searchQuery}"</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">No movies match &ldquo;{searchQuery}&rdquo;</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Check the spelling</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-xs mt-2">or</p>
+                  <button
+                    onClick={() => navigate('/movies/new', { state: { initialTmdbQuery: searchQuery } })}
+                    className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Add Movie
+                  </button>
                 </>
               ) : watchFilter !== WatchFilter.ALL ? (
                 <>

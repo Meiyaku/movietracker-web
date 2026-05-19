@@ -16,6 +16,7 @@ import { MovieDetailEditContent } from '../components/MovieDetailEditContent'
 interface LocationState {
   activeListId?: string
   lists?: { id: string; name: string }[]
+  initialTmdbQuery?: string
 }
 
 function emptyMovie(defaultListIds: string[]): Movie {
@@ -52,6 +53,7 @@ export function MovieDetailPage() {
 
   const isNew = id === 'new'
   const state = location.state as LocationState | null
+  const initialTmdbQuery = isNew ? (state?.initialTmdbQuery ?? '') : ''
 
   const [movie, setMovie] = useState<Movie | null>(null)
   const [editMovie, setEditMovie] = useState<Movie | null>(null)
@@ -62,7 +64,7 @@ export function MovieDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isOnline = useOnlineStatus()
-  const [showTmdb, setShowTmdb] = useState(false)
+  const [showTmdb, setShowTmdb] = useState(!!initialTmdbQuery)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
   const [pendingSave, setPendingSave] = useState<Movie | null>(null)
@@ -300,7 +302,7 @@ export function MovieDetailPage() {
       </div>
 
       {showTmdb && (
-        <TmdbSearchDialog onSelect={handleTmdbSelect} onClose={() => setShowTmdb(false)} />
+        <TmdbSearchDialog onSelect={handleTmdbSelect} onClose={() => setShowTmdb(false)} initialQuery={initialTmdbQuery} />
       )}
 
       {/* Duplicate warning */}

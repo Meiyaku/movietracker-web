@@ -163,20 +163,6 @@ export function MovieDetailEditContent({
         </div>
 
         <div>
-          <label htmlFor="movie-description" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">
-            Description
-          </label>
-          <textarea
-            id="movie-description"
-            value={editMovie.description}
-            onChange={(e) => onChange({ ...editMovie, description: e.target.value })}
-            rows={4}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-            placeholder="Auto-filled from TMDB search…"
-          />
-        </div>
-
-        <div>
           <label htmlFor="movie-notes" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">
             Notes
           </label>
@@ -187,6 +173,20 @@ export function MovieDetailEditContent({
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
             placeholder="Your thoughts on this movie…"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="movie-description" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">
+            Description
+          </label>
+          <textarea
+            id="movie-description"
+            value={editMovie.description}
+            onChange={(e) => onChange({ ...editMovie, description: e.target.value })}
+            rows={4}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+            placeholder="Auto-filled from TMDB search…"
           />
         </div>
 
