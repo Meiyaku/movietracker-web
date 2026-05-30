@@ -1,68 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MovieList, MY_MOVIES_LIST_NAME } from '../types'
 import { signOut } from '../services/authService'
-import { updateList, deleteList, createList } from '../services/movieListService'
-import { removeListFromAllMovies } from '../services/movieService'
+import { fetchRemoteConfig, whatsNew } from '../services/remoteConfigService'
 import { useAuth } from '../context/AuthContext'
-import { useOnlineStatus } from '../hooks/useOnlineStatus'
-import { CreateListDialog } from './dialogs/CreateListDialog'
-import { EditListDialog } from './dialogs/EditListDialog'
-import { DeleteListDialog } from './dialogs/DeleteListDialog'
+import { WhatsNewDialog } from './dialogs/WhatsNewDialog'
+import { CloseIcon, SettingsIcon } from './icons'
 
 interface AppDrawerProps {
-  lists: MovieList[]
-  activeListId: string | null
-  onSelectList: (id: string) => void
   onClose: () => void
-  movieCounts?: Record<string, number>
+  showMigrateData?: boolean
+  isMigratingData?: boolean
+  onMigrateData?: () => void
 }
 
-type DialogState =
-  | { type: 'none' }
-  | { type: 'create' }
-  | { type: 'edit'; list: MovieList }
-  | { type: 'delete'; list: MovieList }
-
-export function AppDrawer({ lists, activeListId, onSelectList, onClose, movieCounts }: AppDrawerProps) {
+export function AppDrawer({
+  onClose,
+  showMigrateData = false,
+  isMigratingData = false,
+  onMigrateData,
+}: AppDrawerProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const isOnline = useOnlineStatus()
-  const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
+  const [whatsNewNotes, setWhatsNewNotes] = useState('')
+
+  useEffect(() => {
+    fetchRemoteConfig().then(() => setWhatsNewNotes(whatsNew()))
+  }, [])
 
   async function handleSignOut() {
     await signOut()
     navigate('/auth')
-  }
-
-  async function handleCreateList(name: string, subtitle: string | undefined, description: string | undefined) {
-    if (!user) return
-    if (!isOnline) throw new Error('No internet connection.')
-    if (lists.some((l) => l.name.toLowerCase() === name.toLowerCase())) {
-      throw new Error(`A list named "${name}" already exists.`)
-    }
-    await createList(user.uid, name, subtitle, description)
-  }
-
-  async function handleEditList(list: MovieList, name: string, subtitle: string | undefined, description: string | undefined) {
-    if (!user) return
-    if (!isOnline) throw new Error('No internet connection.')
-    if (lists.some((l) => l.id !== list.id && l.name.toLowerCase() === name.toLowerCase())) {
-      throw new Error(`A list named "${name}" already exists.`)
-    }
-    await updateList(user.uid, list.id, name, subtitle, description)
-  }
-
-  async function handleDeleteList(list: MovieList) {
-    if (!user) return
-    if (!isOnline) throw new Error('No internet connection.')
-    await removeListFromAllMovies(user.uid, list.id)
-    await deleteList(user.uid, list.id)
-    // If we deleted the active list, reset to My Movies
-    if (activeListId === list.id) {
-      const myMovies = lists.find((l) => l.name === MY_MOVIES_LIST_NAME)
-      if (myMovies) onSelectList(myMovies.id)
-    }
   }
 
   return (
@@ -88,138 +56,62 @@ export function AppDrawer({ lists, activeListId, onSelectList, onClose, movieCou
               className="lg:hidden p-1 text-white/70 hover:text-white transition-colors"
               aria-label="Close drawer"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <CloseIcon className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Nav links */}
-        <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex gap-2">
+        <div className="p-3 flex flex-col gap-2">
           <button
-            onClick={() => { navigate('/settings'); onClose() }}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors flex-1"
+            onClick={() => setShowWhatsNew(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors w-full"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
             </svg>
-            Settings
+            What&apos;s New
           </button>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-            title="Log Out"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Log Out
-          </button>
-        </div>
-
-        {/* Lists header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            My Lists
-          </span>
-          <button
-            onClick={() => setDialog({ type: 'create' })}
-            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New List
-          </button>
-        </div>
-
-        {/* Lists */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-          {lists.map((list) => {
-            const isMyMovies = list.name === MY_MOVIES_LIST_NAME
-            const isActive = list.id === activeListId
-            return (
-              <div
-                key={list.id}
-                className={`flex items-center group mx-2 mb-0.5 rounded-lg ${
-                  isActive ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
-              >
-                <button
-                  onClick={() => { onSelectList(list.id); onClose() }}
-                  className="flex-1 flex items-center gap-2 text-left px-3 py-2.5 text-sm"
-                >
-                  <span className="flex-1 min-w-0">
-                    <span
-                      className={`block truncate ${
-                        isActive
-                          ? 'font-bold text-blue-700 dark:text-blue-400'
-                          : 'font-medium text-gray-800 dark:text-gray-200'
-                      }`}
-                    >
-                      {list.name}
-                    </span>
-                    {list.subtitle && (
-                      <span className="block text-xs text-gray-400 dark:text-gray-500 break-words">
-                        {list.subtitle}
-                      </span>
-                    )}
-                  </span>
-                  {movieCounts !== undefined && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                      {movieCounts[list.id] ?? 0}
-                    </span>
-                  )}
-                </button>
-                {!isMyMovies && (
-                  <div className="flex items-center gap-1 pr-2">
-                    <button
-                      onClick={() => setDialog({ type: 'edit', list })}
-                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                      aria-label="Edit"
-                      title="Edit"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setDialog({ type: 'delete', list })}
-                      className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {showMigrateData && (
+            <button
+              onClick={() => {
+                if (isMigratingData) return
+                onMigrateData?.()
+                onClose()
+              }}
+              disabled={isMigratingData}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 rounded-lg transition-colors w-full"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Migrate Data
+            </button>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => { navigate('/settings'); onClose() }}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors flex-1"
+            >
+              <SettingsIcon className="w-4 h-4" />
+              Settings
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              title="Log Out"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Log Out
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Dialogs */}
-      {dialog.type === 'create' && (
-        <CreateListDialog onConfirm={(name, subtitle, description) => handleCreateList(name, subtitle, description)} onClose={() => setDialog({ type: 'none' })} />
-      )}
-      {dialog.type === 'edit' && (
-        <EditListDialog
-          list={dialog.list}
-          onConfirm={(name, subtitle, description) => handleEditList(dialog.list, name, subtitle, description)}
-          onClose={() => setDialog({ type: 'none' })}
-        />
-      )}
-      {dialog.type === 'delete' && (
-        <DeleteListDialog
-          listName={dialog.list.name}
-          onConfirm={() => handleDeleteList(dialog.list)}
-          onClose={() => setDialog({ type: 'none' })}
-        />
+      {showWhatsNew && (
+        <WhatsNewDialog notes={whatsNewNotes} onClose={() => setShowWhatsNew(false)} />
       )}
     </>
   )

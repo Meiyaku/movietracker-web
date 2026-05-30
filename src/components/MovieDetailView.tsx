@@ -1,13 +1,27 @@
-import { Movie, MovieList, WatchStatus } from '../types'
+import { useState } from 'react'
+import { Movie, WatchStatus } from '../types'
 import { WatchStatusBadge } from './WatchStatusBadge'
 import { StarRating } from './StarRating'
+import { WhereToWatchDialog } from './WhereToWatchDialog'
 
 interface Props {
   movie: Movie
-  lists: MovieList[]
+  onRedetectMediaType?: () => void
+  isRedetectingMediaType?: boolean
+  redetectMediaTypeError?: string | null
 }
 
-export function MovieDetailView({ movie, lists }: Props) {
+export function MovieDetailView({
+  movie,
+  onRedetectMediaType,
+  isRedetectingMediaType,
+  redetectMediaTypeError,
+}: Props) {
+  const [showWhereToWatch, setShowWhereToWatch] = useState(false)
+  const googleFallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(
+    `where to watch ${movie.title}${movie.year ? ` ${movie.year}` : ''}`
+  )}`
+
   return (
     <div className="space-y-4">
       <div className="w-full max-w-[200px] mx-auto rounded-2xl overflow-hidden shadow-lg bg-gray-200 dark:bg-gray-700 aspect-[2/3]">
@@ -50,40 +64,28 @@ export function MovieDetailView({ movie, lists }: Props) {
           </div>
         )}
 
-        {lists.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-              Lists
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {lists
-                .filter((l) => movie.listIds.includes(l.id))
-                .map((l) => (
-                  <span
-                    key={l.id}
-                    className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full"
-                  >
-                    {l.name}
-                  </span>
-                ))}
-            </div>
-          </div>
-        )}
-
         <div className="flex flex-wrap gap-2">
-          {movie.trailerUrl && (
-            <a
-              href={movie.trailerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-              </svg>
-              Watch Trailer
-            </a>
-          )}
+          {(() => {
+            const className =
+              'flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors'
+            const content = (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v5zM8 18h8" />
+                </svg>
+                Where to Watch
+              </>
+            )
+            return movie.tmdbId != null ? (
+              <button type="button" onClick={() => setShowWhereToWatch(true)} className={className}>
+                {content}
+              </button>
+            ) : (
+              <a href={googleFallbackUrl} target="_blank" rel="noopener noreferrer" className={className}>
+                {content}
+              </a>
+            )
+          })()}
           {typeof navigator.share === 'function' && (
             <button
               type="button"
@@ -120,7 +122,52 @@ export function MovieDetailView({ movie, lists }: Props) {
             </p>
           </div>
         )}
+
+        {movie.trailerUrl && (
+          <a
+            href={movie.trailerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+            </svg>
+            Watch Trailer
+          </a>
+        )}
+
+        {movie.tmdbId != null && onRedetectMediaType && (
+          <>
+            <hr className="border-gray-200 dark:border-gray-700" />
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={onRedetectMediaType}
+                disabled={isRedetectingMediaType}
+                className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {isRedetectingMediaType
+                  ? 'Re-detecting…'
+                  : movie.tmdbMediaType
+                    ? `Re-detect media type (currently ${movie.tmdbMediaType})`
+                    : 'Detect media type'}
+              </button>
+              {redetectMediaTypeError && (
+                <p className="text-xs text-red-600 dark:text-red-400">{redetectMediaTypeError}</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
+
+      {showWhereToWatch && movie.tmdbId != null && (
+        <WhereToWatchDialog
+          tmdbId={movie.tmdbId}
+          mediaType={movie.tmdbMediaType ?? 'movie'}
+          onClose={() => setShowWhereToWatch(false)}
+        />
+      )}
     </div>
   )
 }

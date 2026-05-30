@@ -24,6 +24,9 @@ const baseMovie: Movie = {
   posterUrl: '',
   listIds: ['list0'],
   createdAt: ts,
+  tmdbId: null,
+  tmdbMediaType: null,
+  tmdbLookupAttempted: false,
 }
 
 const lists: MovieList[] = [

@@ -29,6 +29,9 @@ const baseMovie: Movie = {
   posterUrl: 'https://img.com/poster.jpg',
   listIds: ['list1'],
   createdAt: { seconds: 1000, nanoseconds: 0 } as unknown as Timestamp,
+  tmdbId: null,
+  tmdbMediaType: null,
+  tmdbLookupAttempted: false,
 }
 
 function renderCard(movie = baseMovie) {

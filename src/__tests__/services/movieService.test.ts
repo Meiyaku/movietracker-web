@@ -104,6 +104,9 @@ describe('subscribeToMoviesForList', () => {
         posterUrl: 'https://img.com/poster.jpg',
         listIds: ['list1'],
         createdAt: fakeTs,
+        tmdbId: null,
+        tmdbMediaType: null,
+        tmdbLookupAttempted: false,
       },
     ])
     expect(result).toBe(unsub)
@@ -242,6 +245,9 @@ describe('addMovie', () => {
       trailerUrl: '',
       posterUrl: '',
       listIds: ['list1'],
+      tmdbId: null,
+      tmdbMediaType: null,
+      tmdbLookupAttempted: false,
     })
     expect(mockAddDoc).toHaveBeenCalledWith('moviesRef', expect.objectContaining({ title: 'Dune' }))
     expect(id).toBe('newMovieId')
@@ -260,6 +266,9 @@ describe('addMovie', () => {
       trailerUrl: '',
       posterUrl: '',
       listIds: [],
+      tmdbId: null,
+      tmdbMediaType: null,
+      tmdbLookupAttempted: false,
     })
     expect(mockAddDoc.mock.calls[0][1].year).toBe(2023)
   })
@@ -277,6 +286,9 @@ describe('addMovie', () => {
       trailerUrl: '',
       posterUrl: '',
       listIds: [],
+      tmdbId: null,
+      tmdbMediaType: null,
+      tmdbLookupAttempted: false,
     })
     expect(mockAddDoc.mock.calls[0][1].year).toBeNull()
   })
@@ -298,6 +310,9 @@ describe('updateMovie', () => {
       posterUrl: 'poster',
       listIds: ['l1'],
       createdAt: fakeTs,
+      tmdbId: null,
+      tmdbMediaType: null,
+      tmdbLookupAttempted: false,
     })
     expect(mockSetDoc).toHaveBeenCalledWith('docRef', expect.objectContaining({ title: 'Updated' }))
   })

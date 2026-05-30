@@ -12,6 +12,8 @@ interface TmdbSearchDialogProps {
     trailerUrl: string
     description: string
     genre: string
+    tmdbId: number
+    tmdbMediaType: string
   }) => void
   onClose: () => void
   initialQuery?: string
@@ -64,10 +66,10 @@ export function TmdbSearchDialog({ onSelect, onClose, initialQuery = '' }: TmdbS
     const genre = result.genre ?? ''
     try {
       const trailerUrl = await getTrailerUrl(result.id, result.mediaType)
-      onSelect({ title: displayTitle, year, posterUrl, trailerUrl: trailerUrl ?? '', description: result.overview ?? '', genre })
+      onSelect({ title: displayTitle, year, posterUrl, trailerUrl: trailerUrl ?? '', description: result.overview ?? '', genre, tmdbId: result.id, tmdbMediaType: result.mediaType })
     } catch (e) {
       recordError(e, 'fetchTrailer')
-      onSelect({ title: displayTitle, year, posterUrl, trailerUrl: '', description: result.overview ?? '', genre })
+      onSelect({ title: displayTitle, year, posterUrl, trailerUrl: '', description: result.overview ?? '', genre, tmdbId: result.id, tmdbMediaType: result.mediaType })
     } finally {
       setSelectingId(null)
     }

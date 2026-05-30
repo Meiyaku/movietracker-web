@@ -12,6 +12,7 @@ import {
   orderBy,
   limit,
   startAfter,
+  updateDoc,
   writeBatch,
   Timestamp,
   QuerySnapshot,
@@ -62,6 +63,9 @@ function docFromSnapshot(d: QueryDocumentSnapshot): Movie {
       ? (data['listIds'] as unknown[]).filter((x): x is string => typeof x === 'string')
       : [],
     createdAt: data['createdAt'] instanceof Timestamp ? data['createdAt'] : Timestamp.now(),
+    tmdbId: typeof data['tmdbId'] === 'number' ? data['tmdbId'] : null,
+    tmdbMediaType: typeof data['tmdbMediaType'] === 'string' ? data['tmdbMediaType'] : null,
+    tmdbLookupAttempted: data['tmdbLookupAttempted'] === true,
   }
 }
 
@@ -142,6 +146,18 @@ export async function updateMovie(uid: string, movie: Movie): Promise<void> {
   await setDoc(doc(moviesCollection(uid), movie.id), movieToMap(movie))
 }
 
+export async function setTmdbLookupResult(
+  uid: string,
+  movieId: string,
+  tmdbId: number | null,
+  mediaType: string | null,
+): Promise<void> {
+  const updates: Record<string, unknown> = { tmdbLookupAttempted: true }
+  if (tmdbId != null) updates['tmdbId'] = tmdbId
+  if (mediaType != null) updates['tmdbMediaType'] = mediaType
+  await updateDoc(doc(moviesCollection(uid), movieId), updates)
+}
+
 export async function deleteMovie(uid: string, movieId: string): Promise<void> {
   await deleteDoc(doc(moviesCollection(uid), movieId))
 }
@@ -196,6 +212,9 @@ function movieToMap(movie: Movie): Record<string, unknown> {
     posterUrl: movie.posterUrl || null,
     listIds: movie.listIds,
     createdAt: movie.createdAt,
+    tmdbId: movie.tmdbId,
+    tmdbMediaType: movie.tmdbMediaType,
+    tmdbLookupAttempted: movie.tmdbLookupAttempted,
   }
 }
 

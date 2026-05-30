@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ThemeMode } from '../types'
+import { ThemeMode, MainScreen } from '../types'
 import { useTheme } from '../context/ThemeContext'
+import { useMainScreen } from '../context/MainScreenContext'
 import { useAuth } from '../context/AuthContext'
 import { deleteAccount } from '../services/authService'
 import { deleteAllMovies } from '../services/movieService'
@@ -26,9 +27,23 @@ const themeOptions: { value: ThemeMode; label: string; description: string }[] =
   },
 ]
 
+const mainScreenOptions: { value: MainScreen; label: string; description: string }[] = [
+  {
+    value: MainScreen.MOVIES,
+    label: 'Movies & TV Shows',
+    description: 'Show your movie list when the app opens',
+  },
+  {
+    value: MainScreen.MY_LISTS,
+    label: 'My Lists',
+    description: 'Show the My Lists screen when the app opens',
+  },
+]
+
 export function SettingsPage() {
   const navigate = useNavigate()
   const { themeMode, setThemeMode } = useTheme()
+  const { mainScreen, setMainScreen } = useMainScreen()
   const { user } = useAuth()
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -113,6 +128,46 @@ export function SettingsPage() {
                     value={option.value}
                     checked={themeMode === option.value}
                     onChange={() => setThemeMode(option.value)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Screen */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Start Up Main Screen
+            </h2>
+          </div>
+
+          <div className="p-4">
+            <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              Screen shown when the app opens
+            </p>
+            <div className="space-y-2">
+              {mainScreenOptions.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {option.label}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {option.description}
+                    </p>
+                  </div>
+                  <input
+                    type="radio"
+                    name="mainScreen"
+                    value={option.value}
+                    checked={mainScreen === option.value}
+                    onChange={() => setMainScreen(option.value)}
                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                   />
                 </label>

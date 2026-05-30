@@ -162,6 +162,8 @@ describe('TmdbSearchDialog', () => {
         trailerUrl: 'https://www.youtube.com/watch?v=trailer',
         description: 'A dream thief',
         genre: 'Science Fiction / Action',
+        tmdbId: 1,
+        tmdbMediaType: 'movie',
       })
     })
   })

@@ -30,6 +30,11 @@ export enum ThemeMode {
   SYSTEM = 'SYSTEM',
 }
 
+export enum MainScreen {
+  MOVIES = 'MOVIES',
+  MY_LISTS = 'MY_LISTS',
+}
+
 export interface Movie {
   id: string
   title: string
@@ -43,6 +48,21 @@ export interface Movie {
   posterUrl: string
   listIds: string[]
   createdAt: Timestamp
+  tmdbId: number | null
+  tmdbMediaType: string | null
+  tmdbLookupAttempted: boolean
+}
+
+export interface TmdbWatchProvider {
+  providerId: number
+  providerName: string
+  logoPath: string | null
+}
+
+export interface TmdbWatchProviders {
+  link: string | null
+  flatrate: TmdbWatchProvider[]
+  buy: TmdbWatchProvider[]
 }
 
 export interface MovieList {

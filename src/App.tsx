@@ -3,8 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { fetchRemoteConfig } from './services/remoteConfigService'
 import { ThemeProvider } from './context/ThemeContext'
+import { MainScreenProvider, useMainScreen } from './context/MainScreenContext'
+import { MainScreen } from './types'
 import { AuthPage } from './pages/AuthPage'
 import { HomePage } from './pages/HomePage'
+import { MyListsPage } from './pages/MyListsPage'
 import { MovieDetailPage } from './pages/MovieDetailPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { OfflineBanner } from './components/OfflineBanner'
@@ -47,6 +50,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function MainScreenRoute() {
+  const { activeMainScreen } = useMainScreen()
+  return activeMainScreen === MainScreen.MY_LISTS ? <MyListsPage /> : <HomePage />
+}
+
 function AppRoutes() {
   const online = useOnlineStatus()
   return (
@@ -65,7 +73,7 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <HomePage />
+            <MainScreenRoute />
           </ProtectedRoute>
         }
       />
@@ -97,11 +105,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
+        <MainScreenProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </AuthProvider>
+        </MainScreenProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

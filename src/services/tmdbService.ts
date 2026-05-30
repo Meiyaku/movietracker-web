@@ -1,4 +1,4 @@
-import { TmdbSearchResult } from '../types'
+import { TmdbSearchResult, TmdbWatchProviders } from '../types'
 import { tmdbApiKey } from './remoteConfigService'
 
 const BEARER_TOKEN_FALLBACK = import.meta.env.VITE_TMDB_BEARER_TOKEN as string
@@ -102,4 +102,69 @@ export function getThumbnailUrl(posterPath: string): string {
 
 export function getPosterUrl(posterPath: string): string {
   return `https://image.tmdb.org/t/p/w500${posterPath}`
+}
+
+interface TmdbProviderDto {
+  provider_id: number
+  provider_name: string
+  logo_path?: string | null
+}
+
+interface TmdbWatchProvidersResponse {
+  results: Record<string, {
+    link?: string
+    flatrate?: TmdbProviderDto[]
+    buy?: TmdbProviderDto[]
+  }>
+}
+
+/**
+ * Probes `/movie/{id}` and `/tv/{id}` and returns the one whose title/name matches
+ * `expectedTitle` (case-insensitive). TMDB ids are per-namespace, so the same numeric id
+ * can exist as both a movie and a TV show — title disambiguation is required.
+ * Returns null when neither endpoint exists.
+ */
+export async function lookupMediaType(id: number, expectedTitle: string): Promise<string | null> {
+  async function fetchTitle(path: 'movie' | 'tv', key: 'title' | 'name'): Promise<string | null> {
+    const res = await fetchWithTimeout(`${BASE_URL}/${path}/${id}`)
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error(`TMDB ${path} lookup failed: ${res.status}`)
+    const data = (await res.json()) as Record<string, unknown>
+    const value = data[key]
+    return typeof value === 'string' ? value : null
+  }
+  const [movieTitle, tvName] = await Promise.all([
+    fetchTitle('movie', 'title'),
+    fetchTitle('tv', 'name'),
+  ])
+  const expected = expectedTitle.toLowerCase()
+  if (movieTitle && movieTitle.toLowerCase() === expected) return 'movie'
+  if (tvName && tvName.toLowerCase() === expected) return 'tv'
+  // Only one resolved: trust that endpoint.
+  if (movieTitle != null && tvName == null) return 'movie'
+  if (tvName != null && movieTitle == null) return 'tv'
+  return null
+}
+
+export async function getWatchProviders(
+  id: number,
+  mediaType: 'movie' | 'tv',
+  region: string = 'US'
+): Promise<TmdbWatchProviders> {
+  const url = `${BASE_URL}/${mediaType}/${id}/watch/providers`
+  const res = await fetchWithTimeout(url)
+  if (!res.ok) throw new Error(`TMDB watch providers failed: ${res.status}`)
+  const data: TmdbWatchProvidersResponse = await res.json()
+  const regionData = data.results[region]
+  if (!regionData) return { link: null, flatrate: [], buy: [] }
+  const mapProvider = (p: TmdbProviderDto) => ({
+    providerId: p.provider_id,
+    providerName: p.provider_name,
+    logoPath: p.logo_path ?? null,
+  })
+  return {
+    link: regionData.link ?? null,
+    flatrate: (regionData.flatrate ?? []).map(mapProvider),
+    buy: (regionData.buy ?? []).map(mapProvider),
+  }
 }

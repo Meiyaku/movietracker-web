@@ -1,128 +1,40 @@
-import { useState, useRef, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { signIn, signUp, sendPasswordReset } from '../services/authService'
-import { createDefaultList } from '../services/movieListService'
-import { recordError } from '../services/logger'
+import { useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
-
-type Tab = 'login' | 'signup'
-
-function getAuthErrorMessage(code: string): string {
-  switch (code) {
-    case 'auth/email-already-in-use':
-      return 'An account with this email already exists.'
-    case 'auth/invalid-email':
-      return 'Please enter a valid email address.'
-    case 'auth/weak-password':
-      return 'Password must be at least 6 characters.'
-    case 'auth/user-not-found':
-    case 'auth/wrong-password':
-    case 'auth/invalid-credential':
-      return 'Invalid email or password.'
-    case 'auth/too-many-requests':
-      return 'Too many attempts. Please try again later.'
-    default:
-      return 'An unexpected error occurred. Please try again.'
-  }
-}
-
-function extractErrorCode(error: unknown): string {
-  if (error && typeof error === 'object' && 'code' in error) {
-    return String((error as { code: string }).code)
-  }
-  return ''
-}
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-}
+import { useAuthForm, type AuthTab } from '../hooks/useAuthForm'
+import { EyeIcon, EyeOffIcon } from '../components/icons'
 
 export function AuthPage() {
-  const navigate = useNavigate()
   const { isDark } = useTheme()
+  const {
+    tab,
+    switchTab,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    confirm,
+    setConfirm,
+    loading,
+    error,
+    showPassword,
+    setShowPassword,
+    showConfirm,
+    setShowConfirm,
+    showForgot,
+    setShowForgot,
+    resetEmail,
+    setResetEmail,
+    resetLoading,
+    resetSent,
+    handleLogin,
+    handleSignUp,
+    handlePasswordReset,
+    openForgot,
+  } = useAuthForm()
 
-  const [tab, setTab] = useState<Tab>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-
-  // Forgot password dialog state
-  const [showForgot, setShowForgot] = useState(false)
-  const [resetEmail, setResetEmail] = useState('')
-  const [resetLoading, setResetLoading] = useState(false)
-  const [resetSent, setResetSent] = useState(false)
   const forgotDialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(forgotDialogRef, showForgot)
-
-  function switchTab(t: Tab) {
-    setTab(t)
-    setError(null)
-    setPassword('')
-    setConfirm('')
-    setShowPassword(false)
-    setShowConfirm(false)
-  }
-
-  async function handleLogin(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    if (!isValidEmail(email)) { setError('Please enter a valid email address.'); return }
-    setLoading(true)
-    try {
-      await signIn(email, password)
-      navigate('/')
-    } catch (err) {
-      recordError(err, 'signIn')
-      setError(getAuthErrorMessage(extractErrorCode(err)))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleSignUp(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    if (!isValidEmail(email)) { setError('Please enter a valid email address.'); return }
-    if (password !== confirm) {
-      setError('Passwords do not match.')
-      return
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
-      return
-    }
-    setLoading(true)
-    try {
-      const user = await signUp(email, password)
-      await createDefaultList(user.uid)
-      navigate('/')
-    } catch (err) {
-      recordError(err, 'signUp')
-      setError(getAuthErrorMessage(extractErrorCode(err)))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handlePasswordReset(e: FormEvent) {
-    e.preventDefault()
-    setResetLoading(true)
-    try {
-      await sendPasswordReset(resetEmail)
-      setResetSent(true)
-    } catch (err) {
-      recordError(err, 'passwordReset')
-      // Show generic success to avoid user enumeration
-      setResetSent(true)
-    } finally {
-      setResetLoading(false)
-    }
-  }
 
   const bgClass = isDark ? 'bg-auth-bg-dark' : 'bg-auth-bg-light'
   const btnClass = isDark ? 'bg-auth-btn-dark hover:bg-[#b07a90]' : 'bg-auth-btn-light hover:bg-[#9a6875]'
@@ -140,7 +52,7 @@ export function AuthPage() {
         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
-            {(['login', 'signup'] as Tab[]).map((t) => (
+            {(['login', 'signup'] as AuthTab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => switchTab(t)}
@@ -195,28 +107,18 @@ export function AuthPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(v => !v)}
+                      onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       tabIndex={-1}
                     >
-                      {showPassword ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7s4-7 9-7a9.97 9.97 0 016.375 2.325M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
+                      {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
                 <div className="text-right">
                   <button
                     type="button"
-                    onClick={() => { setShowForgot(true); setResetEmail(email); setResetSent(false) }}
+                    onClick={openForgot}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     Forgot Password?
@@ -262,21 +164,11 @@ export function AuthPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(v => !v)}
+                      onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       tabIndex={-1}
                     >
-                      {showPassword ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7s4-7 9-7a9.97 9.97 0 016.375 2.325M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
+                      {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -296,21 +188,11 @@ export function AuthPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirm(v => !v)}
+                      onClick={() => setShowConfirm((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       tabIndex={-1}
                     >
-                      {showConfirm ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7s4-7 9-7a9.97 9.97 0 016.375 2.325M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
+                      {showConfirm ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

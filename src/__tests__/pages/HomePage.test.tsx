@@ -18,11 +18,7 @@ vi.mock('../../context/AuthContext', () => {
 })
 
 vi.mock('../../components/AppDrawer', () => ({
-  AppDrawer: ({ lists }: { lists: { id: string; name: string }[] }) => (
-    <div data-testid="app-drawer">
-      {lists.map((l) => <div key={l.id}>{l.name}</div>)}
-    </div>
-  ),
+  AppDrawer: () => <div data-testid="app-drawer" />,
 }))
 
 vi.mock('../../components/MovieCard', () => ({
@@ -49,6 +45,9 @@ vi.mock('../../services/remoteConfigService', () => ({
   pageSize: () => 25,
   isTmdbSearchEnabled: () => false,
   tmdbApiKey: () => '',
+  fetchRemoteConfig: () => Promise.resolve(),
+  whatsNew: () => '',
+  whatsNewVersion: () => 0,
 }))
 
 vi.mock('firebase/firestore', () => ({
